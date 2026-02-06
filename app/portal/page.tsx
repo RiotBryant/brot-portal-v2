@@ -8,6 +8,7 @@ export default function Portal() {
         <li><Link href="/chat">broChAT</Link></li>
         <li><Link href="/lounge">Brother Lounge</Link></li>
         <li><Link href="/admin">Admin</Link></li>
+        <li><a href="/profile">My Profile</a></li>
       </ul>
     </main>
   );

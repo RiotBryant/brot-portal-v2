@@ -14,16 +14,13 @@ export default async function LoginPage({
     typeof searchParams?.error === "string" ? searchParams.error : null;
 
   return (
-    <main className="min-h-screen flex items-center justify-center p-6">
-      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-black/40 p-6">
-        <div className="mb-6 text-center">
-          <div className="mx-auto mb-4 h-16 w-16 rounded-2xl bg-white/10" />
-          <h1 className="text-2xl font-bold">broTher collecTive porTal</h1>
-          <p className="mt-2 text-sm text-white/70">
-            Members only. Log in to continue.
-          </p>
-        </div>
-
+    <div className="mb-6 text-center">
+  <div className="mx-auto mb-4 h-16 w-16 rounded-2xl bg-white/10" />
+  <h1 className="text-2xl font-bold">broTher collecTive porTal</h1>
+  <p className="mt-2 text-sm text-white/70">
+    Members only. Log in to continue.
+  </p>
+</div>
         {error && (
           <div className="mb-4 rounded-xl border border-white/10 bg-black/30 p-3 text-sm">
             Login error: <span className="text-white/70">{error}</span>

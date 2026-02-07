@@ -1,64 +1,66 @@
-import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+"use client";
 
-export default async function LoginPage({
-  searchParams,
-}: {
-  searchParams: { [key: string]: string | string[] | undefined };
-}) {
+import { useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+
+export default function LoginPage() {
   const supabase = createClient();
-  const { data } = await supabase.auth.getUser();
-  if (data.user) redirect("/portal");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const error =
-    typeof searchParams?.error === "string" ? searchParams.error : null;
+  async function handleLogin(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    setLoading(false);
+
+    if (error) {
+      alert("Login failed: " + error.message);
+      return;
+    }
+
+    // redirect to the main portal page
+    window.location.href = "/portal";
+  }
 
   return (
-    <main className="min-h-screen flex items-center justify-center p-6">
-      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-black/40 p-6">
-        <div className="mb-6 text-center">
-          <div className="mx-auto mb-4 h-16 w-16 rounded-2xl bg-white/10" />
-          <h1 className="text-2xl font-bold">broTher collecTive porTal</h1>
-          <p className="mt-2 text-sm text-white/70">
-            Members only. Log in to continue.
-          </p>
-        </div>
-
-        {error ? (
-          <div className="mb-4 rounded-xl border border-white/10 bg-black/30 p-3 text-sm">
-            Login error: <span className="text-white/70">{error}</span>
-          </div>
-        ) : null}
-
-        <form action="/api/auth/login" method="post" className="space-y-3">
+    <main style={{ padding: "2rem", maxWidth: 400, margin: "0 auto" }}>
+      <h1 style={{ marginBottom: "1rem" }}>Log in</h1>
+      <form onSubmit={handleLogin}>
+        <div style={{ marginBottom: "1rem" }}>
           <input
-            name="email"
             type="email"
-            required
             placeholder="Email"
-            className="w-full rounded-xl bg-black/40 border border-white/10 p-3"
-          />
-          <input
-            name="password"
-            type="password"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            style={{ width: "100%", padding: "0.5rem" }}
             required
-            placeholder="Password"
-            className="w-full rounded-xl bg-black/40 border border-white/10 p-3"
           />
-          <button
-            type="submit"
-            className="w-full rounded-xl bg-white text-black font-semibold p-3"
-          >
-            Login
-          </button>
-        </form>
-
-        <div className="mt-4 text-center">
-          <a className="text-sm underline" href="/request-access">
-            Get Access
-          </a>
         </div>
-      </div>
+        <div style={{ marginBottom: "1rem" }}>
+          <input
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            style={{ width: "100%", padding: "0.5rem" }}
+            required
+          />
+        </div>
+        <button
+          type="submit"
+          disabled={loading}
+          style={{ width: "100%", padding: "0.75rem" }}
+        >
+          {loading ? "Logging in..." : "Log in"}
+        </button>
+      </form>
     </main>
   );
 }

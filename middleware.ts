@@ -1,51 +1,12 @@
-import { NextResponse, type NextRequest } from "next/server";
-import { createServerClient } from "@supabase/ssr";
+import { type NextRequest } from "next/server";
+import { updateSession } from "@/lib/supabase/middleware";
 
-export async function middleware(req: NextRequest) {
-  let res = NextResponse.next();
-
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return req.cookies.getAll();
-        },
-        setAll(cookiesToSet: { name: string; value: string; options: any }[]) {
-          cookiesToSet.forEach(({ name, value, options }) => {
-            res.cookies.set(name, value, options);
-          });
-        },
-      },
-    }
-  );
-
-  // IMPORTANT: this refreshes the session cookie if needed
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const path = req.nextUrl.pathname;
-
-  // Lock everything under /protected
-  if (path.startsWith("/protected") && !user) {
-    const url = req.nextUrl.clone();
-    url.pathname = "/login";
-    url.searchParams.set("redirect", path);
-    return NextResponse.redirect(url);
-  }
-
-  // Optional: keep logged-in users out of /login
-  if (path === "/login" && user) {
-    const url = req.nextUrl.clone();
-    url.pathname = "/protected";
-    return NextResponse.redirect(url);
-  }
-
-  return res;
+export async function middleware(request: NextRequest) {
+  return await updateSession(request);
 }
 
 export const config = {
-  matcher: ["/protected/:path*", "/login"],
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+  ],
 };

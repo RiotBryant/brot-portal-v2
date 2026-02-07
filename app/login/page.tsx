@@ -1,35 +1,51 @@
-"use client";
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
 
-import { createClient } from "@supabase/supabase-js";
-import { useState } from "react";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
-
-export default function LoginPage() {
-  const [email, setEmail] = useState("");
-
-  async function login() {
-    await supabase.auth.signInWithOtp({
-      email,
-      options: {
-        emailRedirectTo: window.location.origin + "/portal",
-      },
-    });
-    alert("Check your email for the login link.");
-  }
+export default async function LoginPage() {
+  const supabase = createClient();
+  const { data } = await supabase.auth.getUser();
+  if (data.user) redirect("/portal");
 
   return (
-    <main style={{ padding: 48 }}>
-      <h1>Login</h1>
-      <input
-        placeholder="Email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-      />
-      <button onClick={login}>Send Magic Link</button>
+    <main className="min-h-screen flex items-center justify-center p-6">
+      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-black/40 p-6">
+        <div className="mb-6 text-center">
+          <div className="mx-auto mb-4 h-16 w-16 rounded-2xl bg-white/10" />
+          <h1 className="text-2xl font-bold">broTher collecTive porTal</h1>
+          <p className="mt-2 text-sm text-white/70">
+            Members only. Log in to continue.
+          </p>
+        </div>
+
+        <form action="/api/auth/login" method="post" className="space-y-3">
+          <input
+            name="email"
+            type="email"
+            required
+            placeholder="Email"
+            className="w-full rounded-xl bg-black/40 border border-white/10 p-3"
+          />
+          <input
+            name="password"
+            type="password"
+            required
+            placeholder="Password"
+            className="w-full rounded-xl bg-black/40 border border-white/10 p-3"
+          />
+          <button
+            type="submit"
+            className="w-full rounded-xl bg-white text-black font-semibold p-3"
+          >
+            Login
+          </button>
+        </form>
+
+        <div className="mt-4 text-center">
+          <a className="text-sm underline" href="/request-access">
+            Get Access
+          </a>
+        </div>
+      </div>
     </main>
   );
 }

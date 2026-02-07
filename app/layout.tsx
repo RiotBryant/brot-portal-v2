@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
 import { Inter } from "next/font/google";
 import { ThemeProvider } from "next-themes";
 import "./globals.css";
@@ -9,7 +10,7 @@ const defaultUrl = process.env.VERCEL_URL
 
 export const metadata: Metadata = {
   metadataBase: new URL(defaultUrl),
-  title: "broTher collecTive Portal",
+  title: "broTher collecTive porTal",
   description: "Private member portal for broTher collecTive",
 };
 
@@ -18,11 +19,7 @@ const inter = Inter({
   display: "swap",
 });
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.className} antialiased`}>
@@ -38,3 +35,4 @@ export default function RootLayout({
     </html>
   );
 }
+

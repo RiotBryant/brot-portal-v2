@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { sendEmail } from "@/lib/email/resend";
+import { sendEmail } from "@/lib/email/send";
 import { denialEmail } from "@/lib/email/templates";
 
 type Role = "new" | "member" | "admin" | "superadmin" | "god";

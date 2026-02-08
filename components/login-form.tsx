@@ -46,7 +46,6 @@ export function LoginForm({
       setError(error instanceof Error ? error.message : "An error occurred");
     } finally {
       setIsLoading(false);
-    }
   };
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>

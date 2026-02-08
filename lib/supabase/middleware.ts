@@ -28,7 +28,13 @@ export async function updateSession(request: NextRequest) {
         getAll() {
           return request.cookies.getAll();
         },
-        setAll(cookiesToSet) {
+        setAll(
+  cookiesToSet: Array<{
+    name: string;
+    value: string;
+    options?: Record<string, any>;
+  }>
+) {
           // IMPORTANT: only set cookies on the RESPONSE (not request.cookies)
           cookiesToSet.forEach(({ name, value, options }) => {
             response.cookies.set(name, value, options);

@@ -1,29 +1,42 @@
+"use client";
+
 import Link from "next/link";
-import { Button } from "./ui/button";
+import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { LogoutButton } from "./logout-button";
 
-export async function AuthButton() {
- const { data, error } = await supabase.auth.signInWithPassword(...)
+export function AuthButton() {
+  const [loading, setLoading] = useState(true);
+  const [signedIn, setSignedIn] = useState(false);
 
-  // You can also use getUser() which will be slower.
-  const { data } = await supabase.auth.getClaims();
+  useEffect(() => {
+    let alive = true;
 
-  const user = data?.claims;
+    supabase.auth.getSession().then(({ data }) => {
+      if (!alive) return;
+      setSignedIn(!!data.session);
+      setLoading(false);
+    });
 
-  return user ? (
-    <div className="flex items-center gap-4">
-      Hey, {user.email}!
-      <LogoutButton />
-    </div>
-  ) : (
-    <div className="flex gap-2">
-      <Button asChild size="sm" variant={"outline"}>
-        <Link href="/auth/login">Sign in</Link>
-      </Button>
-      <Button asChild size="sm" variant={"default"}>
-        <Link href="/auth/sign-up">Sign up</Link>
-      </Button>
-    </div>
-  );
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSignedIn(!!session);
+    });
+
+    return () => {
+      alive = false;
+      sub.subscription.unsubscribe();
+    };
+  }, []);
+
+  if (loading) return null;
+
+  if (!signedIn) {
+    return (
+      <Link href="/login">
+        Log in
+      </Link>
+    );
+  }
+
+  return <LogoutButton />;
 }

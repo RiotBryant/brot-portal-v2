@@ -64,4 +64,30 @@ export default function LoginContent() {
     }
 
     setLoading(true);
-    tr
+try {
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email: cleanEmail,
+    password,
+  });
+
+  if (error) {
+    const msg = (error.message || "").toLowerCase();
+    if (msg.includes("invalid login")) setError("Incorrect email or password.");
+    else if (msg.includes("email not confirmed")) setError("Confirm your email first.");
+    else setError(error.message || "Login failed.");
+    return;
+  }
+
+  if (!data.session) {
+    setError("Login didn’t complete. Try again.");
+    return;
+  }
+
+  setStatus("Logged in. Redirecting…");
+  router.replace(redirectTo);
+  router.refresh();
+} catch (err) {
+  setError(err instanceof Error ? err.message : "Unexpected error.");
+} finally {
+  setLoading(false);
+}

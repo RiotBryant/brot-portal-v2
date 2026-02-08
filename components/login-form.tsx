@@ -1,7 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { supabase } from "@/lib/supabase/client";
+import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -20,13 +20,11 @@ export function LoginForm({
   className,
   ...props
 }: React.ComponentPropsWithoutRef<"div">) {
-  const router = useRouter();
-
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,16 +32,12 @@ export function LoginForm({
     setError(null);
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password,
-      });
-
+      const supabase = createClient();
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
 
-      // change this to wherever you want users to land
       router.push("/protected");
-      router.refresh();
+      router.refresh(); // helps Next pick up new cookies/session
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
@@ -56,24 +50,25 @@ export function LoginForm({
       <Card>
         <CardHeader>
           <CardTitle className="text-2xl">Login</CardTitle>
-          <CardDescription>
-            Enter your email below to login to your account
-          </CardDescription>
+          <CardDescription>Enter your email below to login to your account</CardDescription>
         </CardHeader>
-
         <CardContent>
           <form onSubmit={handleLogin}>
             <div className="flex flex-col gap-6">
+              {!!error && (
+                <div className="rounded-md border px-3 py-2 text-sm">
+                  {error}
+                </div>
+              )}
+
               <div className="grid gap-2">
                 <Label htmlFor="email">Email</Label>
                 <Input
                   id="email"
                   type="email"
-                  placeholder="m@example.com"
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  disabled={isLoading}
                 />
               </div>
 
@@ -87,25 +82,17 @@ export function LoginForm({
                     Forgot your password?
                   </Link>
                 </div>
-
                 <Input
                   id="password"
                   type="password"
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  disabled={isLoading}
                 />
               </div>
 
-              {error && (
-                <div className="rounded-md border border-red-500/40 bg-red-500/10 p-3 text-sm">
-                  {error}
-                </div>
-              )}
-
               <Button type="submit" disabled={isLoading}>
-                {isLoading ? "Logging in..." : "Log in"}
+                {isLoading ? "Signing in..." : "Sign in"}
               </Button>
             </div>
           </form>

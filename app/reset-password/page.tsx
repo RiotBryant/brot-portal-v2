@@ -6,7 +6,6 @@ import { supabase } from "@/lib/supabase/client";
 
 export default function ResetPasswordPage() {
   const router = useRouter();
-  const supabase = createClient();
 
   const [pw1, setPw1] = useState("");
   const [pw2, setPw2] = useState("");

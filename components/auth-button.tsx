@@ -4,7 +4,7 @@ import { supabase } from "@/lib/supabase/client";
 import { LogoutButton } from "./logout-button";
 
 export async function AuthButton() {
-  const { data, error } = await supabase.auth.signInWithPassword(...)
+ const { data, error } = await supabase.auth.signInWithPassword(...)
 
   // You can also use getUser() which will be slower.
   const { data } = await supabase.auth.getClaims();

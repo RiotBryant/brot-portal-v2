@@ -8,9 +8,6 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY");
 }
 
-// Export singleton instance
 export const supabase = createSupabaseClient(supabaseUrl, supabaseAnonKey);
 
-// Export function to create new client instances
 export const createClient = () => createSupabaseClient(supabaseUrl, supabaseAnonKey);
-

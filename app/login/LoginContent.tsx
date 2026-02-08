@@ -1,85 +1,208 @@
-'use client';
+"use client";
 
-import { useSearchParams, useRouter } from 'next/navigation';
-import { useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { supabase } from "@/lib/supabase/client";
+
+function isValidEmail(email: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+}
 
 export default function LoginContent() {
-  const searchParams = useSearchParams();
   const router = useRouter();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const searchParams = useSearchParams();
+
+  // /login?next=/portal  (safe: only internal paths)
+  const redirectTo = useMemo(() => {
+    const next = searchParams.get("next");
+    return next && next.startsWith("/") ? next : "/portal";
+  }, [searchParams]);
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [status, setStatus] = useState<string | null>(null);
 
-  const handleLogin = async (e: React.FormEvent) => {
+  // if already logged in -> go where they should be
+  useEffect(() => {
+    let alive = true;
+
+    (async () => {
+      const { data, error } = await supabase.auth.getSession();
+      if (!alive) return;
+
+      if (error) {
+        setError(error.message || "Could not check session.");
+        return;
+      }
+
+      if (data.session) {
+        router.replace(redirectTo);
+        router.refresh();
+      }
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, [router, redirectTo]);
+
+  async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
-    setLoading(true);
-    setError('');
+    setError(null);
+    setStatus(null);
 
-    const supabase = createClient();
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    const cleanEmail = email.trim();
 
-    if (error) {
-      setError(error.message);
-      setLoading(false);
-    } else {
-      router.push('/dashboard');
+    // basic validation
+    if (!cleanEmail || !password) {
+      setError("Email and password are required.");
+      return;
     }
-  };
+    if (!isValidEmail(cleanEmail)) {
+      setError("Enter a valid email.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: cleanEmail,
+        password,
+      });
+
+      if (error) {
+        const msg = (error.message || "").toLowerCase();
+        if (msg.includes("invalid login")) setError("Incorrect email or password.");
+        else if (msg.includes("email not confirmed")) setError("Confirm your email first.");
+        else setError(error.message || "Login failed.");
+        return;
+      }
+
+      if (!data.session) {
+        setError("Login didn’t complete. Try again.");
+        return;
+      }
+
+      setStatus("Logged in. Redirecting…");
+      router.replace(redirectTo);
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unexpected error.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleForgotPassword() {
+    setError(null);
+    setStatus(null);
+
+    const cleanEmail = email.trim();
+    if (!cleanEmail) {
+      setError("Enter your email first.");
+      return;
+    }
+    if (!isValidEmail(cleanEmail)) {
+      setError("Enter a valid email.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+
+      if (error) {
+        setError(error.message || "Could not send reset email.");
+        return;
+      }
+
+      setStatus("Reset email sent. Check spam too.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unexpected error.");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="max-w-md w-full space-y-8 p-8 bg-white rounded-lg shadow">
-        <h2 className="text-3xl font-bold text-center">Login</h2>
-        
-        {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-            {error}
-          </div>
-        )}
+    <main style={{ maxWidth: 420, margin: "48px auto", padding: 16 }}>
+      <h1 style={{ fontSize: 28, marginBottom: 8 }}>Login</h1>
+      <p style={{ opacity: 0.75, marginBottom: 16 }}>Sign in to continue.</p>
 
-        <form onSubmit={handleLogin} className="space-y-6">
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-              Email
-            </label>
-            <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-            />
-          </div>
+      {error && (
+        <div
+          role="alert"
+          style={{
+            background: "#ffe5e5",
+            padding: 12,
+            borderRadius: 10,
+            marginBottom: 12,
+          }}
+        >
+          {error}
+        </div>
+      )}
 
-          <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-              Password
-            </label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-            />
-          </div>
+      {status && (
+        <div
+          style={{
+            background: "#e7ffe5",
+            padding: 12,
+            borderRadius: 10,
+            marginBottom: 12,
+          }}
+        >
+          {status}
+        </div>
+      )}
 
-          <button
-            type="submit"
+      <form onSubmit={handleLogin} style={{ display: "grid", gap: 12 }}>
+        <label style={{ display: "grid", gap: 6 }}>
+          <span>Email</span>
+          <input
+            type="email"
+            autoComplete="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
             disabled={loading}
-            className="w-full py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loading ? 'Loading...' : 'Login'}
-          </button>
-        </form>
-      </div>
-    </div>
-  );
-}
+            placeholder="you@email.com"
+            style={{ padding: 10, borderRadius: 10, border: "1px solid #ccc" }}
+          />
+        </label>
+
+        <label style={{ display: "grid", gap: 6 }}>
+          <span>Password</span>
+          <input
+            type="password"
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            disabled={loading}
+            placeholder="••••••••"
+            style={{ padding: 10, borderRadius: 10, border: "1px solid #ccc" }}
+          />
+        </label>
+
+        <button
+          type="submit"
+          disabled={loading}
+          style={{
+            padding: 12,
+            borderRadius: 12,
+            border: "none",
+            cursor: loading ? "not-allowed" : "pointer",
+            opacity: loading ? 0.7 : 1,
+          }}
+        >
+          {loading ? "Signing in…" : "Sign in"}
+        </button>
+
+        <button
+          type="button"
+          onClick={handleForgotPassword}
+          disabled={loa

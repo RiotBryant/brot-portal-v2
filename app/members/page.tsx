@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/client"; // <-- CHANGE THIS if your file path is different
+import { supabase } from "@/lib/supabase/client";
 
 export default function MembersPage() {
   const router = useRouter();

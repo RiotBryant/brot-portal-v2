@@ -8,33 +8,40 @@ import { supabase } from "@/lib/supabase/client";
 type ReqRow = {
   id: string;
   created_at: string;
-  category: string;
-  subject: string;
-  body: string;
-  status: string;
-  created_by: string;
+  category: string | null;
+  subject: string | null;
+  status: string | null;
+  created_by: string | null;
 };
 
-export default function AdminInboxDetail() {
+type MsgRow = {
+  id: string;
+  created_at: string;
+  author_id: string | null;
+  body: string | null;
+  is_internal: boolean | null;
+};
+
+export default function InboxDetailPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
-  const id = params?.id;
+  const id = params.id;
 
-  const [role, setRole] = useState<string>("member");
   const [loading, setLoading] = useState(true);
-  const [row, setRow] = useState<ReqRow | null>(null);
+  const [role, setRole] = useState<string>("member");
+
+  const [req, setReq] = useState<ReqRow | null>(null);
+  const [msgs, setMsgs] = useState<MsgRow[]>([]);
+  const [reply, setReply] = useState("");
+  const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  const [status, setStatus] = useState("open");
-  const [note, setNote] = useState("");
-
-  const canView = useMemo(() => role === "admin" || role === "superadmin", [role]);
+  const isAdmin = useMemo(() => role === "admin" || role === "superadmin", [role]);
 
   useEffect(() => {
     (async () => {
-      setErr(null);
-      const { data: s } = await supabase.auth.getSession();
-      if (!s.session) {
+      const { data } = await supabase.auth.getSession();
+      if (!data.session) {
         router.replace("/login");
         return;
       }
@@ -52,54 +59,77 @@ export default function AdminInboxDetail() {
         .eq("user_id", uid)
         .maybeSingle();
 
-      setRole(r?.role ?? "member");
-      setLoading(false);
-    })();
-  }, [router]);
+      const roleVal = r?.role ?? "member";
+      setRole(roleVal);
 
-  useEffect(() => {
-    if (loading) return;
-    if (!canView) return;
-    if (!id) return;
-
-    (async () => {
-      setErr(null);
-      const { data, error } = await supabase
-        .from("requests")
-        .select("id, created_at, category, subject, body, status, created_by")
-        .eq("id", id)
-        .single();
-
-      if (error) {
-        setErr(error.message);
+      if (!(roleVal === "admin" || roleVal === "superadmin")) {
+        router.replace("/members");
         return;
       }
 
-      const r = data as ReqRow;
-      setRow(r);
-      setStatus(r.status ?? "open");
-    })();
-  }, [loading, canView, id]);
+      const { data: reqRow, error: reqErr } = await supabase
+        .from("requests")
+        .select("id, created_at, category, subject, status, created_by")
+        .eq("id", id)
+        .single();
 
-  async function saveStatus() {
-    if (!id) return;
+      if (reqErr) throw reqErr;
+
+      const { data: msgRows, error: msgErr } = await supabase
+        .from("request_messages")
+        .select("id, created_at, author_id, body, is_internal")
+        .eq("request_id", id)
+        .order("created_at", { ascending: true });
+
+      if (msgErr) throw msgErr;
+
+      setReq(reqRow as ReqRow);
+      setMsgs((msgRows ?? []) as MsgRow[]);
+      setLoading(false);
+    })().catch((e: any) => {
+      setErr(e?.message ?? "Failed to load request.");
+      setLoading(false);
+    });
+  }, [router, id]);
+
+  async function addInternalNote() {
     setErr(null);
+    const clean = reply.trim();
+    if (!clean) return;
 
-    const { error } = await supabase
-      .from("requests")
-      .update({
-        status,
-        last_updated: new Date().toISOString(),
-        decision_note: note.trim() || null,
-      })
-      .eq("id", id);
+    setSaving(true);
+    try {
+      const { data: u } = await supabase.auth.getUser();
+      const uid = u.user?.id;
+      if (!uid) {
+        router.replace("/login");
+        return;
+      }
 
-    if (error) {
-      setErr(error.message);
-      return;
+      const { error } = await supabase.from("request_messages").insert({
+        request_id: id,
+        author_id: uid,
+        body: clean,
+        is_internal: true,
+      });
+
+      if (error) throw error;
+
+      const { data: msgRows, error: msgErr } = await supabase
+        .from("request_messages")
+        .select("id, created_at, author_id, body, is_internal")
+        .eq("request_id", id)
+        .order("created_at", { ascending: true });
+
+      if (msgErr) throw msgErr;
+
+      setMsgs((msgRows ?? []) as MsgRow[]);
+      setReply("");
+    } catch (e: any) {
+      setErr(e?.message ?? "Failed to add note.");
+    } finally {
+      setSaving(false);
     }
-
-    router.refresh();
   }
 
   if (loading) {
@@ -110,99 +140,109 @@ export default function AdminInboxDetail() {
     );
   }
 
-  if (!canView) {
-    return (
-      <div className="min-h-screen bg-[#07070b] text-white">
-        <div className="mx-auto max-w-xl px-5 py-10">
-          <Link href="/members" className="text-sm text-white/70 hover:text-white">
-            ← Back
-          </Link>
-          <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.04] p-6">
-            <h1 className="text-xl font-semibold">Request</h1>
-            <p className="mt-2 text-sm text-white/70">
-              Not authorized. Your role is <span className="text-white">{role}</span>.
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (!row) {
-    return (
-      <div className="min-h-screen bg-[#07070b] text-white">
-        <div className="mx-auto max-w-2xl px-5 py-10">
-          <Link href="/admin/inbox" className="text-sm text-white/70 hover:text-white">
-            ← Back to inbox
-          </Link>
-          {err ? (
-            <div className="mt-6 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">
-              {err}
-            </div>
-          ) : (
-            <div className="mt-6 text-sm text-white/70">Not found.</div>
-          )}
-        </div>
-      </div>
-    );
-  }
+  if (!isAdmin) return null;
 
   return (
     <div className="min-h-screen bg-[#07070b] text-white">
-      <div className="mx-auto max-w-3xl px-5 py-10">
-        <Link href="/admin/inbox" className="text-sm text-white/70 hover:text-white">
-          ← Back to inbox
-        </Link>
+      <style>{`
+        .glass {
+          background: rgba(255,255,255,0.04);
+          border: 1px solid rgba(255,255,255,0.10);
+          box-shadow: 0 0 60px rgba(80,170,255,0.06);
+        }
+        .btn {
+          background: rgba(255,255,255,0.06);
+          border: 1px solid rgba(255,255,255,0.12);
+          transition: transform .12s ease, border-color .12s ease, background .12s ease;
+        }
+        .btn:hover { transform: translateY(-1px); border-color: rgba(255,255,255,0.22); background: rgba(255,255,255,0.08); }
+        .input {
+          width: 100%;
+          background: rgba(0,0,0,0.35);
+          border: 1px solid rgba(255,255,255,0.10);
+          border-radius: 14px;
+          padding: 10px 12px;
+          outline: none;
+        }
+      `}</style>
 
-        <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.04] p-6">
-          <div className="text-sm text-white/60">
-            {new Date(row.created_at).toLocaleString()} • {row.category}
-          </div>
-          <h1 className="mt-2 text-2xl font-semibold">{row.subject}</h1>
-
-          <div className="mt-4 whitespace-pre-wrap rounded-xl border border-white/10 bg-black/30 p-4 text-sm text-white/80">
-            {row.body}
-          </div>
-
-          {err ? (
-            <div className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">
-              {err}
+      <div className="mx-auto max-w-5xl px-5 py-10">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">
+              {req?.subject || "(no subject)"}
+            </h1>
+            <div className="mt-2 text-sm text-white/70">
+              {req?.category || "other"} • {req?.status || "open"} •{" "}
+              {req?.created_at ? new Date(req.created_at).toLocaleString() : ""}
             </div>
-          ) : null}
+          </div>
 
-          <div className="mt-6 grid gap-3">
-            <div className="grid gap-2">
-              <label className="text-sm text-white/80">Status</label>
-              <select
-                value={status}
-                onChange={(e) => setStatus(e.target.value)}
-                className="h-11 rounded-xl border border-white/10 bg-black/40 px-3 text-white outline-none focus:border-white/25"
+          <div className="text-right">
+            <div className="text-xs text-white/60">
+              Role: <span className="text-white">{role}</span>
+            </div>
+            <div className="mt-2">
+              <Link href="/admin/inbox" className="h-9 rounded-xl px-3 text-sm btn inline-grid place-items-center">
+                Back to Inbox
+              </Link>
+            </div>
+          </div>
+        </div>
+
+        {err ? <div className="mt-6 text-sm text-red-300">{err}</div> : null}
+
+        <div className="mt-6 glass rounded-2xl p-6">
+          <h2 className="text-lg font-semibold">Thread</h2>
+
+          <div className="mt-4 space-y-3">
+            {msgs.length === 0 ? (
+              <div className="text-sm text-white/60">No messages yet.</div>
+            ) : (
+              msgs.map((m) => (
+                <div
+                  key={m.id}
+                  className={`rounded-2xl border p-4 ${
+                    m.is_internal
+                      ? "border-white/15 bg-black/40"
+                      : "border-white/10 bg-black/25"
+                  }`}
+                >
+                  <div className="text-xs text-white/55 flex items-center justify-between">
+                    <span>{m.is_internal ? "Internal note" : "Member message"}</span>
+                    <span>{new Date(m.created_at).toLocaleString()}</span>
+                  </div>
+                  <div className="mt-2 text-sm text-white/80 whitespace-pre-wrap">
+                    {m.body || ""}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          <div className="mt-6">
+            <div className="text-sm font-semibold">Add internal note</div>
+            <textarea
+              className="input mt-2"
+              rows={4}
+              value={reply}
+              onChange={(e) => setReply(e.target.value)}
+              placeholder="Admins only. Calm notes, next steps, assignments."
+            />
+            <div className="mt-3 flex gap-2">
+              <button
+                onClick={addInternalNote}
+                disabled={saving}
+                className="h-10 rounded-xl px-3 text-sm btn"
               >
-                <option value="open">open</option>
-                <option value="in_progress">in_progress</option>
-                <option value="resolved">resolved</option>
-                <option value="closed">closed</option>
-              </select>
+                {saving ? "Saving…" : "Add Note"}
+              </button>
             </div>
-
-            <div className="grid gap-2">
-              <label className="text-sm text-white/80">Internal note (optional)</label>
-              <textarea
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                rows={3}
-                placeholder="What did you do / what’s the plan?"
-                className="rounded-xl border border-white/10 bg-black/40 p-3 text-white placeholder:text-white/35 outline-none focus:border-white/25"
-              />
-            </div>
-
-            <button
-              onClick={saveStatus}
-              className="h-11 rounded-xl bg-white text-black font-medium"
-            >
-              Save
-            </button>
           </div>
+        </div>
+
+        <div className="mt-6 text-xs text-white/45">
+          Phase 2: superadmin can override admin actions + audit trail.
         </div>
       </div>
     </div>

@@ -8,34 +8,33 @@ import { supabase } from "@/lib/supabase/client";
 type ReqRow = {
   id: string;
   created_at: string;
+  created_by: string;
   category: string | null;
   subject: string | null;
   status: string | null;
+  visibility: string | null;
+  last_updated: string | null;
+  urgent_note: string | null;
 };
+
+type ProfileMini = { user_id: string; username: string | null; display_name: string | null; avatar_url?: string | null };
 
 export default function AdminInboxPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [role, setRole] = useState<string>("member");
-  const [rows, setRows] = useState<ReqRow[]>([]);
-  const [err, setErr] = useState<string | null>(null);
-
+  const [items, setItems] = useState<ReqRow[]>([]);
+  const [profiles, setProfiles] = useState<Record<string, ProfileMini>>({});
   const isAdmin = useMemo(() => role === "admin" || role === "superadmin", [role]);
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase.auth.getSession();
-      if (!data.session) {
-        router.replace("/login");
-        return;
-      }
+      const { data: sess } = await supabase.auth.getSession();
+      if (!sess.session) return router.replace("/login");
 
       const { data: u } = await supabase.auth.getUser();
       const uid = u.user?.id;
-      if (!uid) {
-        router.replace("/login");
-        return;
-      }
+      if (!uid) return router.replace("/login");
 
       const { data: r } = await supabase
         .from("user_roles")
@@ -43,34 +42,42 @@ export default function AdminInboxPage() {
         .eq("user_id", uid)
         .maybeSingle();
 
-      const roleVal = r?.role ?? "member";
-      setRole(roleVal);
+      const myRole = r?.role ?? "member";
+      setRole(myRole);
 
-      if (!(roleVal === "admin" || roleVal === "superadmin")) {
+      if (!(myRole === "admin" || myRole === "superadmin")) {
         router.replace("/members");
         return;
       }
 
+      // Pull requests (admin visibility)
       const { data: reqs, error } = await supabase
         .from("requests")
-        .select("id, created_at, category, subject, status")
-        .order("created_at", { ascending: false })
-        .limit(200);
+        .select("id, created_at, created_by, category, subject, status, visibility, last_updated, urgent_note")
+        .eq("visibility", "admin")
+        .order("last_updated", { ascending: false, nullsFirst: false })
+        .order("created_at", { ascending: false });
 
-      if (error) throw error;
+      if (error) console.error(error);
+      const list = (reqs ?? []) as ReqRow[];
+      setItems(list);
 
-      setRows((reqs ?? []) as ReqRow[]);
+      // Fetch profile labels for created_by
+      const ids = Array.from(new Set(list.map((x) => x.created_by))).filter(Boolean);
+      if (ids.length) {
+        const { data: profs } = await supabase
+          .from("profiles")
+          .select("user_id, username, display_name, avatar_url")
+          .in("user_id", ids);
+
+        const map: Record<string, ProfileMini> = {};
+        (profs ?? []).forEach((p: any) => (map[p.user_id] = p));
+        setProfiles(map);
+      }
+
       setLoading(false);
-    })().catch((e: any) => {
-      setErr(e?.message ?? "Failed to load inbox.");
-      setLoading(false);
-    });
+    })();
   }, [router]);
-
-  async function logout() {
-    await supabase.auth.signOut();
-    router.replace("/login");
-  }
 
   if (loading) {
     return (
@@ -84,95 +91,59 @@ export default function AdminInboxPage() {
 
   return (
     <div className="min-h-screen bg-[#07070b] text-white">
-      <style>{`
-        .glass {
-          background: rgba(255,255,255,0.04);
-          border: 1px solid rgba(255,255,255,0.10);
-          box-shadow: 0 0 60px rgba(80,170,255,0.06);
-        }
-        .btn {
-          background: rgba(255,255,255,0.06);
-          border: 1px solid rgba(255,255,255,0.12);
-          transition: transform .12s ease, border-color .12s ease, background .12s ease;
-        }
-        .btn:hover { transform: translateY(-1px); border-color: rgba(255,255,255,0.22); background: rgba(255,255,255,0.08); }
-        .pill {
-          border: 1px solid rgba(255,255,255,0.10);
-          background: rgba(0,0,0,0.35);
-          border-radius: 999px;
-          padding: 2px 10px;
-          font-size: 12px;
-          color: rgba(255,255,255,0.75);
-        }
-      `}</style>
-
       <div className="mx-auto max-w-5xl px-5 py-10">
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Admin Inbox</h1>
-            <p className="mt-2 text-sm text-white/70">
-              Calm queue. Nothing loud. Handle support requests with care.
-            </p>
+            <p className="mt-2 text-sm text-white/70">Support requests (email-style).</p>
           </div>
-
-          <div className="text-right">
-            <div className="text-xs text-white/60">
-              Role: <span className="text-white">{role}</span>
-            </div>
-            <div className="mt-2 flex gap-2 justify-end">
-              <Link href="/members" className="h-9 rounded-xl px-3 text-sm btn inline-grid place-items-center">
-                Back
-              </Link>
-              <button onClick={logout} className="h-9 rounded-xl px-3 text-sm btn">
-                Log out
-              </button>
-            </div>
-          </div>
+          <Link href="/members" className="text-sm text-white/70 hover:text-white">
+            ← Back to Portal
+          </Link>
         </div>
 
-        {err ? <div className="mt-6 text-sm text-red-300">{err}</div> : null}
-
-        <div className="mt-6 glass rounded-2xl overflow-hidden">
-          <div className="px-5 py-4 border-b border-white/10 flex items-center justify-between">
-            <div className="text-sm text-white/70">
-              {rows.length} request{rows.length === 1 ? "" : "s"}
-            </div>
-            <div className="text-xs text-white/50">Newest first</div>
+        <div className="mt-6 rounded-2xl border border-white/10 overflow-hidden">
+          <div className="grid grid-cols-12 gap-2 px-4 py-3 text-xs text-white/60 bg-white/5">
+            <div className="col-span-3">From</div>
+            <div className="col-span-5">Subject</div>
+            <div className="col-span-2">Status</div>
+            <div className="col-span-2 text-right">Updated</div>
           </div>
 
-          <div className="divide-y divide-white/10">
-            {rows.length === 0 ? (
-              <div className="p-6 text-sm text-white/60">No requests yet.</div>
-            ) : (
-              rows.map((r) => (
+          {items.length === 0 ? (
+            <div className="px-4 py-10 text-sm text-white/60">No requests yet.</div>
+          ) : (
+            items.map((r) => {
+              const p = profiles[r.created_by];
+              const from = p?.display_name || p?.username || "member";
+              const updated = r.last_updated || r.created_at;
+
+              return (
                 <Link
                   key={r.id}
-                  href={`/admin/inbox/${r.id}`}
-                  className="block px-5 py-4 hover:bg-white/5 transition"
+                  href={`/members/admin/inbox/${r.id}`}
+                  className="grid grid-cols-12 gap-2 px-4 py-4 border-t border-white/10 hover:bg-white/5"
                 >
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="text-sm font-medium truncate">
-                        {r.subject || "(no subject)"}
-                      </div>
-                      <div className="mt-1 text-xs text-white/60">
-                        {new Date(r.created_at).toLocaleString()}
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <span className="pill">{r.category || "other"}</span>
-                      <span className="pill">{r.status || "open"}</span>
-                    </div>
+                  <div className="col-span-3 text-sm">
+                    {from}
+                    {r.urgent_note ? <div className="mt-1 text-xs text-red-200/80">URGENT</div> : null}
+                  </div>
+                  <div className="col-span-5 text-sm">
+                    <div className="font-medium">{r.subject || "(no subject)"}</div>
+                    <div className="mt-1 text-xs text-white/60">{r.category || "other"}</div>
+                  </div>
+                  <div className="col-span-2 text-sm">
+                    <span className="rounded-full border border-white/15 px-2 py-1 text-xs">
+                      {r.status || "open"}
+                    </span>
+                  </div>
+                  <div className="col-span-2 text-right text-xs text-white/60">
+                    {new Date(updated).toLocaleString()}
                   </div>
                 </Link>
-              ))
-            )}
-          </div>
-        </div>
-
-        <div className="mt-6 text-xs text-white/45">
-          Superadmin will eventually be able to override admin actions. (Phase 2.)
+              );
+            })
+          )}
         </div>
       </div>
     </div>

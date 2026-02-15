@@ -179,7 +179,7 @@ export default function SupportFormPage() {
           <div className="text-right">
             {isAdmin && (
               <Link
-                href="/admin/inbox"
+                href="members/admin/inbox">Admin Inbox →</Link>
                 className="text-xs text-white/70 hover:text-white"
               >
                 Admin Inbox →

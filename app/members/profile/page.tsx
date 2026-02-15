@@ -1,76 +1,63 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 
-type ProfileRow = {
+type Profile = {
   user_id: string;
   display_name: string | null;
   username: string | null;
+
   phone: string | null;
   email: string | null;
-  bio: string | null;
   instagram: string | null;
   tiktok: string | null;
-  twitter: string | null;
-  facebook: string | null;
-  website: string | null;
-  avatar_url: string | null;
-  admin_photo_url: string | null;
+  x: string | null;
+  linkedin: string | null;
+  bio: string | null;
+
+  avatar_path: string | null;
+  admin_photo_path: string | null;
 };
 
-function cleanUsername(v: string) {
-  return v
+function slugifyUsername(raw: string) {
+  return raw
     .trim()
     .toLowerCase()
-    .replace(/\s+/g, "") // no spaces
-    .replace(/[^a-z0-9._-]/g, ""); // safe chars
+    .replace(/[^a-z0-9_]/g, "")
+    .slice(0, 24);
 }
 
 export default function ProfilePage() {
   const router = useRouter();
-
+  const [uid, setUid] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+
   const [saving, setSaving] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-  const [ok, setOk] = useState<string | null>(null);
+  const [msg, setMsg] = useState<string>("");
 
-  const [role, setRole] = useState<string>("member");
-  const isAdmin = useMemo(() => role === "admin" || role === "superadmin", [role]);
+  const [form, setForm] = useState<Profile>({
+    user_id: "",
+    display_name: "",
+    username: "",
+    phone: "",
+    email: "",
+    instagram: "",
+    tiktok: "",
+    x: "",
+    linkedin: "",
+    bio: "",
+    avatar_path: null,
+    admin_photo_path: null,
+  });
 
-  const [uid, setUid] = useState<string>("");
-  const [authEmail, setAuthEmail] = useState<string>("");
-
-  // fields
-  const [displayName, setDisplayName] = useState("");
-  const [username, setUsername] = useState("");
-
-  const [phone, setPhone] = useState("");
-  const [email, setEmail] = useState("");
-
-  const [instagram, setInstagram] = useState("");
-  const [tiktok, setTiktok] = useState("");
-  const [twitter, setTwitter] = useState("");
-  const [facebook, setFacebook] = useState("");
-  const [website, setWebsite] = useState("");
-
-  const [bio, setBio] = useState("");
-
-  // avatar
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
-  const [avatarFile, setAvatarFile] = useState<File | null>(null);
-
-  // admin photo (private bucket)
   const [adminPhotoUrl, setAdminPhotoUrl] = useState<string | null>(null);
-  const [adminPhotoSigned, setAdminPhotoSigned] = useState<string | null>(null);
-  const [adminPhotoFile, setAdminPhotoFile] = useState<File | null>(null);
 
   useEffect(() => {
     (async () => {
-      setErr(null);
-      setOk(null);
-
       const { data: sess } = await supabase.auth.getSession();
       if (!sess.session) {
         router.replace("/login");
@@ -78,160 +65,160 @@ export default function ProfilePage() {
       }
 
       const { data: u } = await supabase.auth.getUser();
-      const id = u.user?.id;
+      const id = u.user?.id ?? null;
       if (!id) {
         router.replace("/login");
         return;
       }
-
       setUid(id);
-      setAuthEmail(u.user?.email ?? "");
 
-      // role
-      const { data: r } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", id)
-        .maybeSingle();
-      setRole(r?.role ?? "member");
-
-      // profile
-      const { data: p, error: pErr } = await supabase
+      const { data, error } = await supabase
         .from("profiles")
         .select(
-          "user_id,display_name,username,phone,email,bio,instagram,tiktok,twitter,facebook,website,avatar_url,admin_photo_url"
+          "user_id, display_name, username, phone, email, instagram, tiktok, x, linkedin, bio, avatar_path, admin_photo_path"
         )
         .eq("user_id", id)
-        .maybeSingle<ProfileRow>();
+        .maybeSingle();
 
-      if (pErr) {
-        setErr(pErr.message);
-        setLoading(false);
-        return;
+      if (error) console.error(error);
+
+      const merged: Profile = {
+        user_id: id,
+        display_name: data?.display_name ?? "",
+        username: data?.username ?? "",
+        phone: data?.phone ?? "",
+        email: data?.email ?? "",
+        instagram: data?.instagram ?? "",
+        tiktok: data?.tiktok ?? "",
+        x: data?.x ?? "",
+        linkedin: data?.linkedin ?? "",
+        bio: data?.bio ?? "",
+        avatar_path: data?.avatar_path ?? null,
+        admin_photo_path: data?.admin_photo_path ?? null,
+      };
+
+      setForm(merged);
+
+      // signed urls for private buckets
+      if (merged.avatar_path) {
+        const { data: signed } = await supabase.storage
+          .from("avatars")
+          .createSignedUrl(merged.avatar_path, 60 * 60);
+        setAvatarUrl(signed?.signedUrl ?? null);
       }
 
-      // If no row exists yet, we’ll create on save (upsert).
-      if (p) {
-        setDisplayName(p.display_name ?? "");
-        setUsername(p.username ?? "");
-        setPhone(p.phone ?? "");
-        setEmail(p.email ?? "");
-        setBio(p.bio ?? "");
-
-        setInstagram(p.instagram ?? "");
-        setTiktok(p.tiktok ?? "");
-        setTwitter(p.twitter ?? "");
-        setFacebook(p.facebook ?? "");
-        setWebsite(p.website ?? "");
-
-        setAvatarUrl(p.avatar_url ?? null);
-        setAdminPhotoUrl(p.admin_photo_url ?? null);
+      if (merged.admin_photo_path) {
+        const { data: signed } = await supabase.storage
+          .from("admin-photos")
+          .createSignedUrl(merged.admin_photo_path, 60 * 60);
+        setAdminPhotoUrl(signed?.signedUrl ?? null);
       }
 
       setLoading(false);
     })();
   }, [router]);
 
-  useEffect(() => {
-    // Refresh signed URL for admin photo preview
-    (async () => {
-      if (!adminPhotoUrl) {
-        setAdminPhotoSigned(null);
-        return;
-      }
-      // adminPhotoUrl is stored as the object path in bucket: "{uid}/admin.jpg"
-      const { data, error } = await supabase.storage
-        .from("admin-photos")
-        .createSignedUrl(adminPhotoUrl, 60 * 10); // 10 min
+  const canSave = useMemo(() => {
+    return !!uid && !!form.display_name?.trim() && !!form.username?.trim();
+  }, [uid, form.display_name, form.username]);
 
-      if (error) {
-        setAdminPhotoSigned(null);
-        return;
-      }
-      setAdminPhotoSigned(data.signedUrl);
-    })();
-  }, [adminPhotoUrl]);
+  async function saveProfile() {
+    if (!uid) return;
+    setSaving(true);
+    setMsg("");
 
-  async function uploadAvatarIfNeeded() {
-    if (!avatarFile) return avatarUrl;
+    const cleanedUsername = slugifyUsername(form.username ?? "");
+    if (!cleanedUsername) {
+      setSaving(false);
+      setMsg("Username is required (letters/numbers/underscore only).");
+      return;
+    }
 
-    const ext = avatarFile.name.split(".").pop()?.toLowerCase() || "png";
+    const payload = {
+      user_id: uid,
+      display_name: form.display_name?.trim() || null,
+      username: cleanedUsername,
+
+      phone: form.phone?.trim() || null,
+      email: form.email?.trim() || null,
+      instagram: form.instagram?.trim() || null,
+      tiktok: form.tiktok?.trim() || null,
+      x: form.x?.trim() || null,
+      linkedin: form.linkedin?.trim() || null,
+      bio: form.bio?.trim() || null,
+
+      avatar_path: form.avatar_path,
+      admin_photo_path: form.admin_photo_path,
+    };
+
+    const { error } = await supabase.from("profiles").upsert(payload, {
+      onConflict: "user_id",
+    });
+
+    if (error) {
+      console.error(error);
+      setMsg(error.message);
+      setSaving(false);
+      return;
+    }
+
+    setForm((f) => ({ ...f, username: cleanedUsername }));
+    setMsg("Saved.");
+    setSaving(false);
+  }
+
+  async function uploadAvatar(file: File) {
+    if (!uid) return;
+    setMsg("");
+
+    const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
     const path = `${uid}/avatar.${ext}`;
 
     const { error: upErr } = await supabase.storage
       .from("avatars")
-      .upload(path, avatarFile, { upsert: true, contentType: avatarFile.type });
+      .upload(path, file, { upsert: true, contentType: file.type });
 
-    if (upErr) throw new Error(upErr.message);
+    if (upErr) {
+      console.error(upErr);
+      setMsg(upErr.message);
+      return;
+    }
 
-    const { data } = supabase.storage.from("avatars").getPublicUrl(path);
-    return data.publicUrl;
+    setForm((f) => ({ ...f, avatar_path: path }));
+
+    const { data: signed } = await supabase.storage
+      .from("avatars")
+      .createSignedUrl(path, 60 * 60);
+
+    setAvatarUrl(signed?.signedUrl ?? null);
+    setMsg("Avatar updated.");
   }
 
-  async function uploadAdminPhotoIfNeeded() {
-    if (!adminPhotoFile) return adminPhotoUrl;
+  async function uploadAdminPhoto(file: File) {
+    if (!uid) return;
+    setMsg("");
 
-    const ext = adminPhotoFile.name.split(".").pop()?.toLowerCase() || "jpg";
-    const path = `${uid}/admin.${ext}`;
+    const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+    const path = `${uid}/photo.${ext}`;
 
     const { error: upErr } = await supabase.storage
       .from("admin-photos")
-      .upload(path, adminPhotoFile, { upsert: true, contentType: adminPhotoFile.type });
+      .upload(path, file, { upsert: true, contentType: file.type });
 
-    if (upErr) throw new Error(upErr.message);
-
-    // store object path (NOT a public URL) because this bucket is private
-    return path;
-  }
-
-  async function save() {
-    setErr(null);
-    setOk(null);
-    setSaving(true);
-
-    try {
-      const un = cleanUsername(username);
-
-      if (!displayName.trim()) throw new Error("Portal Name is required.");
-      if (!un) throw new Error("Username is required.");
-
-      const nextAvatarUrl = await uploadAvatarIfNeeded();
-      const nextAdminPath = await uploadAdminPhotoIfNeeded();
-
-      const payload: Partial<ProfileRow> = {
-        user_id: uid,
-        display_name: displayName.trim(),
-        username: un,
-        phone: phone.trim() || null,
-        email: (email.trim() || authEmail || "").trim() || null,
-        bio: bio.trim() || null,
-        instagram: instagram.trim() || null,
-        tiktok: tiktok.trim() || null,
-        twitter: twitter.trim() || null,
-        facebook: facebook.trim() || null,
-        website: website.trim() || null,
-        avatar_url: nextAvatarUrl ?? null,
-        admin_photo_url: nextAdminPath ?? null,
-      };
-
-      const { error } = await supabase
-        .from("profiles")
-        .upsert(payload, { onConflict: "user_id" });
-
-      if (error) throw new Error(error.message);
-
-      setAvatarUrl(nextAvatarUrl ?? null);
-      setAdminPhotoUrl(nextAdminPath ?? null);
-
-      setAvatarFile(null);
-      setAdminPhotoFile(null);
-
-      setOk("Saved.");
-    } catch (e: any) {
-      setErr(e?.message ?? "Save failed.");
-    } finally {
-      setSaving(false);
+    if (upErr) {
+      console.error(upErr);
+      setMsg(upErr.message);
+      return;
     }
+
+    setForm((f) => ({ ...f, admin_photo_path: path }));
+
+    const { data: signed } = await supabase.storage
+      .from("admin-photos")
+      .createSignedUrl(path, 60 * 60);
+
+    setAdminPhotoUrl(signed?.signedUrl ?? null);
+    setMsg("Admin photo updated.");
   }
 
   if (loading) {
@@ -244,234 +231,220 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen bg-[#07070b] text-white">
-      <div className="mx-auto max-w-3xl px-5 py-10">
+      <style>{`
+        .wrap { max-width: 900px; margin: 0 auto; padding: 22px 18px 90px; }
+        .glass {
+          background: rgba(255,255,255,0.04);
+          border: 1px solid rgba(255,255,255,0.10);
+          box-shadow: 0 0 60px rgba(80,170,255,0.06);
+          border-radius: 24px;
+        }
+        .pill {
+          border: 1px solid rgba(255,255,255,0.12);
+          background: rgba(255,255,255,0.06);
+          border-radius: 999px;
+          height: 42px;
+          padding: 0 14px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          transition: transform .12s ease, border-color .12s ease, background .12s ease;
+        }
+        .pill:hover { transform: translateY(-1px); border-color: rgba(255,255,255,0.22); background: rgba(255,255,255,0.08); }
+        .primary { background:#fff; color:#000; border:none; }
+        label { font-size: 12px; color: rgba(255,255,255,0.7); display:block; margin-bottom:6px; }
+        input, textarea {
+          width: 100%;
+          border-radius: 14px;
+          padding: 10px 12px;
+          outline: none;
+          color: white;
+          background: rgba(255,255,255,0.06);
+          border: 1px solid rgba(255,255,255,0.12);
+        }
+        textarea { min-height: 110px; resize: vertical; }
+        .grid { display:grid; gap: 12px; grid-template-columns: repeat(1, minmax(0, 1fr)); }
+        @media (min-width: 900px) { .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+        .card { background: rgba(0,0,0,0.28); border: 1px solid rgba(255,255,255,0.10); border-radius: 22px; padding: 16px; }
+        .tiny { color: rgba(255,255,255,0.55); font-size: 12px; }
+        .avatarBox {
+          width: 84px; height: 84px; border-radius: 24px;
+          border: 1px solid rgba(255,255,255,0.12);
+          background: rgba(255,255,255,0.06);
+          overflow:hidden;
+        }
+        .avatarBox img { width:100%; height:100%; object-fit:cover; display:block; }
+      `}</style>
+
+      <div className="wrap">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h1 className="text-xl font-semibold tracking-tight">Profile</h1>
-            <p className="mt-1 text-sm text-white/60">Portal name + username</p>
+            <h1 className="text-2xl font-semibold tracking-tight">Profile</h1>
+            <p className="mt-1 text-sm text-white/70">
+              Your portal identity + what you want other members to see.
+            </p>
           </div>
-
-          <button
-            onClick={() => router.back()}
-            className="h-10 rounded-xl px-4 text-sm border border-white/15 bg-white/5 hover:bg-white/10 transition"
-          >
-            ← Back
-          </button>
+          <div className="flex gap-2">
+            <Link href="/members" className="pill text-sm">
+              ← Back
+            </Link>
+            <Link href="/members/directory" className="pill text-sm">
+              Directory
+            </Link>
+          </div>
         </div>
 
-        <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.04] p-6">
-          {err ? (
-            <div className="mb-4 rounded-xl border border-red-500/25 bg-red-500/10 p-3 text-sm text-red-200">
-              {err}
-            </div>
-          ) : null}
+        <div className="glass mt-4 p-4">
+          <div className="grid">
+            <div className="card">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-lg font-semibold">Display Avatar</div>
+                  <div className="tiny">
+                    This is what members see in the directory.
+                  </div>
+                </div>
+                <div className="avatarBox">{avatarUrl ? <img src={avatarUrl} alt="" /> : null}</div>
+              </div>
 
-          {ok ? (
-            <div className="mb-4 rounded-xl border border-emerald-500/25 bg-emerald-500/10 p-3 text-sm text-emerald-100">
-              {ok}
+              <div className="mt-3">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) uploadAvatar(f);
+                  }}
+                />
+                <div className="tiny mt-2">
+                  Tip: use a clear face/upper-body shot.
+                </div>
+              </div>
             </div>
-          ) : null}
 
-          <div className="grid gap-4 md:grid-cols-2">
+            <div className="card">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-lg font-semibold">Admin Photo</div>
+                  <div className="tiny">
+                    Only admins can view this. For back-of-house identity.
+                  </div>
+                </div>
+                <div className="avatarBox">{adminPhotoUrl ? <img src={adminPhotoUrl} alt="" /> : null}</div>
+              </div>
+
+              <div className="mt-3">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) uploadAdminPhoto(f);
+                  }}
+                />
+                <div className="tiny mt-2">
+                  Please use a normal photo (no filters). This is private.
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid mt-4">
             <div>
-              <label className="text-xs text-white/60">Portal Name (display)</label>
+              <label>Portal Name (display)</label>
               <input
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                className="mt-2 w-full h-11 rounded-xl px-4 bg-black/30 border border-white/10 focus:outline-none focus:border-white/25"
+                value={form.display_name ?? ""}
+                onChange={(e) => setForm((f) => ({ ...f, display_name: e.target.value }))}
                 placeholder="Riot Bryant"
               />
             </div>
 
             <div>
-              <label className="text-xs text-white/60">Username (no spaces)</label>
+              <label>Username (no spaces)</label>
               <input
-                value={username}
-                onChange={(e) => setUsername(cleanUsername(e.target.value))}
-                className="mt-2 w-full h-11 rounded-xl px-4 bg-black/30 border border-white/10 focus:outline-none focus:border-white/25"
+                value={form.username ?? ""}
+                onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))}
                 placeholder="riotbryant"
               />
-              <div className="mt-2 text-[11px] text-white/45">
-                This is what shows in Directory. Keep it clean.
+              <div className="tiny mt-1">
+                Allowed: letters, numbers, underscore. We auto-clean it on save.
               </div>
             </div>
-          </div>
 
-          <div className="mt-6 grid gap-4 md:grid-cols-2">
             <div>
-              <label className="text-xs text-white/60">Phone</label>
+              <label>Phone (optional)</label>
               <input
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                className="mt-2 w-full h-11 rounded-xl px-4 bg-black/30 border border-white/10 focus:outline-none focus:border-white/25"
-                placeholder="(###) ###-####"
+                value={form.phone ?? ""}
+                onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+                placeholder="(555) 555-5555"
               />
             </div>
 
             <div>
-              <label className="text-xs text-white/60">Email</label>
+              <label>Email (optional)</label>
               <input
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="mt-2 w-full h-11 rounded-xl px-4 bg-black/30 border border-white/10 focus:outline-none focus:border-white/25"
-                placeholder={authEmail || "you@email.com"}
+                value={form.email ?? ""}
+                onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                placeholder="you@email.com"
               />
-              <div className="mt-2 text-[11px] text-white/45">
-                If you leave it blank, we’ll use your login email.
-              </div>
+            </div>
+
+            <div>
+              <label>Instagram (optional)</label>
+              <input
+                value={form.instagram ?? ""}
+                onChange={(e) => setForm((f) => ({ ...f, instagram: e.target.value }))}
+                placeholder="@handle"
+              />
+            </div>
+
+            <div>
+              <label>TikTok (optional)</label>
+              <input
+                value={form.tiktok ?? ""}
+                onChange={(e) => setForm((f) => ({ ...f, tiktok: e.target.value }))}
+                placeholder="@handle"
+              />
+            </div>
+
+            <div>
+              <label>X (optional)</label>
+              <input
+                value={form.x ?? ""}
+                onChange={(e) => setForm((f) => ({ ...f, x: e.target.value }))}
+                placeholder="@handle"
+              />
+            </div>
+
+            <div>
+              <label>LinkedIn (optional)</label>
+              <input
+                value={form.linkedin ?? ""}
+                onChange={(e) => setForm((f) => ({ ...f, linkedin: e.target.value }))}
+                placeholder="linkedin.com/in/… or name"
+              />
             </div>
           </div>
 
-          <div className="mt-6">
-            <label className="text-xs text-white/60">Bio</label>
+          <div className="mt-4">
+            <label>Bio (optional)</label>
             <textarea
-              value={bio}
-              onChange={(e) => setBio(e.target.value)}
-              className="mt-2 w-full min-h-[96px] rounded-xl px-4 py-3 bg-black/30 border border-white/10 focus:outline-none focus:border-white/25"
-              placeholder="Short and real. Nothing performative."
+              value={form.bio ?? ""}
+              onChange={(e) => setForm((f) => ({ ...f, bio: e.target.value }))}
+              placeholder="A few lines about you. Keep it real."
             />
           </div>
 
-          <div className="mt-6 grid gap-4 md:grid-cols-2">
-            <div>
-              <label className="text-xs text-white/60">Instagram</label>
-              <input
-                value={instagram}
-                onChange={(e) => setInstagram(e.target.value)}
-                className="mt-2 w-full h-11 rounded-xl px-4 bg-black/30 border border-white/10 focus:outline-none focus:border-white/25"
-                placeholder="@handle"
-              />
-            </div>
-
-            <div>
-              <label className="text-xs text-white/60">TikTok</label>
-              <input
-                value={tiktok}
-                onChange={(e) => setTiktok(e.target.value)}
-                className="mt-2 w-full h-11 rounded-xl px-4 bg-black/30 border border-white/10 focus:outline-none focus:border-white/25"
-                placeholder="@handle"
-              />
-            </div>
-
-            <div>
-              <label className="text-xs text-white/60">Twitter / X</label>
-              <input
-                value={twitter}
-                onChange={(e) => setTwitter(e.target.value)}
-                className="mt-2 w-full h-11 rounded-xl px-4 bg-black/30 border border-white/10 focus:outline-none focus:border-white/25"
-                placeholder="@handle"
-              />
-            </div>
-
-            <div>
-              <label className="text-xs text-white/60">Facebook</label>
-              <input
-                value={facebook}
-                onChange={(e) => setFacebook(e.target.value)}
-                className="mt-2 w-full h-11 rounded-xl px-4 bg-black/30 border border-white/10 focus:outline-none focus:border-white/25"
-                placeholder="profile link"
-              />
-            </div>
-
-            <div className="md:col-span-2">
-              <label className="text-xs text-white/60">Website</label>
-              <input
-                value={website}
-                onChange={(e) => setWebsite(e.target.value)}
-                className="mt-2 w-full h-11 rounded-xl px-4 bg-black/30 border border-white/10 focus:outline-none focus:border-white/25"
-                placeholder="https://"
-              />
-            </div>
-          </div>
-
-          <div className="mt-8 grid gap-6 md:grid-cols-2">
-            <div className="rounded-2xl border border-white/10 bg-black/20 p-5">
-              <div className="flex items-center justify-between">
-                <div className="text-sm font-semibold">Display Avatar</div>
-                {avatarUrl ? (
-                  <img
-                    src={avatarUrl}
-                    className="h-12 w-12 rounded-2xl border border-white/10 object-cover"
-                    alt="avatar"
-                  />
-                ) : (
-                  <div className="h-12 w-12 rounded-2xl border border-white/10 bg-white/5 grid place-items-center text-xs text-white/50">
-                    —
-                  </div>
-                )}
-              </div>
-
-              <div className="mt-3 text-xs text-white/60">
-                This shows on your profile + directory. Keep it clean.
-              </div>
-
-              <input
-                type="file"
-                accept="image/*"
-                className="mt-3 block w-full text-xs text-white/70"
-                onChange={(e) => setAvatarFile(e.target.files?.[0] ?? null)}
-              />
-
-              {avatarFile ? (
-                <div className="mt-3 text-xs text-white/50">
-                  Selected: {avatarFile.name}
-                </div>
-              ) : null}
-            </div>
-
-            <div className="rounded-2xl border border-white/10 bg-black/20 p-5">
-              <div className="flex items-center justify-between">
-                <div className="text-sm font-semibold">Admin Photo</div>
-                {adminPhotoSigned ? (
-                  <img
-                    src={adminPhotoSigned}
-                    className="h-12 w-12 rounded-2xl border border-white/10 object-cover"
-                    alt="admin"
-                  />
-                ) : (
-                  <div className="h-12 w-12 rounded-2xl border border-white/10 bg-white/5 grid place-items-center text-xs text-white/50">
-                    —
-                  </div>
-                )}
-              </div>
-
-              <div className="mt-3 text-xs text-white/60">
-                Private. Visible to admins only. Please use a clear photo.
-              </div>
-
-              <input
-                type="file"
-                accept="image/*"
-                className="mt-3 block w-full text-xs text-white/70"
-                onChange={(e) => setAdminPhotoFile(e.target.files?.[0] ?? null)}
-              />
-
-              {adminPhotoFile ? (
-                <div className="mt-3 text-xs text-white/50">
-                  Selected: {adminPhotoFile.name}
-                </div>
-              ) : null}
-
-              {isAdmin ? (
-                <div className="mt-3 text-[11px] text-white/45">
-                  You’re admin, so you can view admin photos in back-of-house later.
-                </div>
-              ) : null}
-            </div>
-          </div>
-
-          <div className="mt-7 flex items-center justify-between gap-3">
-            <div className="text-xs text-white/45">
-              UID: <span className="text-white/70">{uid}</span>
-            </div>
-
+          <div className="mt-4 flex items-center gap-3">
             <button
-              disabled={saving}
-              onClick={save}
-              className="h-11 rounded-xl px-6 text-sm bg-white text-black font-semibold disabled:opacity-60"
+              className={`pill primary text-sm ${saving ? "opacity-70" : ""}`}
+              disabled={!canSave || saving}
+              onClick={saveProfile}
             >
               {saving ? "Saving…" : "Save"}
             </button>
+
+            {msg ? <div className="tiny">{msg}</div> : null}
           </div>
         </div>
       </div>

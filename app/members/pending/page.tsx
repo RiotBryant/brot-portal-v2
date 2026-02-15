@@ -12,7 +12,7 @@ export default function PendingPage() {
 
         <div className="mt-6 flex justify-center gap-3">
           <Link href="/login" className="underline text-sm">
-            Back to Home
+            Back to Login
           </Link>
           <Link href="/members" className="underline text-sm">
             Home

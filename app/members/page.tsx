@@ -54,221 +54,207 @@ export default function MembersPage() {
   return (
     <div className="min-h-screen bg-[#07070b] text-white">
       <style>{`
-        /* subtle pulse for the SMALL logo only */
+        :root { color-scheme: dark; }
         @keyframes broTPulse {
           0%, 100% { transform: scale(1); filter: drop-shadow(0 0 0 rgba(90,170,255,0)); opacity: 1; }
-          50% { transform: scale(1.04); filter: drop-shadow(0 0 18px rgba(90,170,255,0.35)); opacity: 0.98; }
+          50% { transform: scale(1.05); filter: drop-shadow(0 0 22px rgba(90,170,255,0.35)); opacity: 0.98; }
         }
         .broT-pulse { animation: broTPulse 2.8s ease-in-out infinite; }
-
         .glass {
-          background: rgba(255,255,255,0.04);
+          background: rgba(255,255,255,0.045);
           border: 1px solid rgba(255,255,255,0.10);
-          box-shadow: 0 0 60px rgba(80,170,255,0.06);
+          box-shadow: 0 0 70px rgba(80,170,255,0.06);
           backdrop-filter: blur(10px);
         }
-
         .pill {
           background: rgba(255,255,255,0.92);
-          color: #0a0a0d;
-          border: 1px solid rgba(255,255,255,0.20);
-          height: 44px;
-          padding: 0 18px;
-          border-radius: 999px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          font-weight: 700;
-          letter-spacing: .08em;
-          text-transform: uppercase;
-          font-size: 12px;
-          transition: transform .12s ease, background .12s ease, opacity .12s ease;
-          user-select: none;
+          color: #0b0b12;
+          border: 1px solid rgba(255,255,255,0.65);
+          transition: transform .12s ease, filter .12s ease;
         }
-        .pill:hover { transform: translateY(-1px); background: rgba(255,255,255,0.98); }
-        .pillDark {
-          background: rgba(255,255,255,0.08);
-          color: rgba(255,255,255,0.92);
+        .pill:hover { transform: translateY(-1px); filter: brightness(1.02); }
+        .pillGhost {
+          background: rgba(255,255,255,0.06);
           border: 1px solid rgba(255,255,255,0.14);
-          font-weight: 650;
-          letter-spacing: .02em;
-          text-transform: none;
+          transition: transform .12s ease, border-color .12s ease, background .12s ease;
         }
-        .pillDark:hover { background: rgba(255,255,255,0.10); }
+        .pillGhost:hover { transform: translateY(-1px); border-color: rgba(255,255,255,0.22); background: rgba(255,255,255,0.08); }
+        .muted { color: rgba(255,255,255,0.70); }
+        .muted2 { color: rgba(255,255,255,0.55); }
+        .hairline { height: 1px; background: rgba(255,255,255,0.10); }
       `}</style>
 
-      <div className="mx-auto max-w-6xl px-5 py-10">
-        {/* HERO (Carrd-style) */}
-        <div className="relative overflow-hidden rounded-[28px] glass">
-          {/* blurred background image */}
-          <div className="pointer-events-none absolute inset-0">
-            <img
-              src="/broTportal.png"
-              alt=""
-              className="h-full w-full object-cover opacity-[0.18] blur-xl scale-125"
-            />
-            <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/60 to-black/85" />
-          </div>
+      <div className="mx-auto max-w-6xl px-5 py-8">
+        {/* HERO (Carrd vibe) */}
+        <div className="relative overflow-hidden rounded-[28px] border border-white/10 bg-black/30">
+          {/* Faded huge logo as background (NOT an <img> in the flow) */}
+          <div
+            className="absolute inset-0 opacity-[0.28]"
+            style={{
+              backgroundImage: "url(/broTportal.png)",
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+              filter: "blur(0px)",
+            }}
+          />
+          {/* Dark overlay so it feels “secret layer” */}
+          <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-black/60 to-black/85" />
 
-          <div className="relative px-6 py-10 sm:px-10">
-            {/* top row: taglines left/right + center logo */}
-            <div className="grid gap-6 sm:grid-cols-3 sm:items-center">
-              <div className="text-center sm:text-left">
-                <div className="text-sm text-white/80">Built on presence, not noise.</div>
-                <div className="mt-2 h-px w-56 bg-white/20 mx-auto sm:mx-0" />
+          <div className="relative px-5 py-8 sm:px-10 sm:py-10">
+            {/* Top row: taglines + small pulsing icon */}
+            <div className="flex items-center justify-between gap-4">
+              <div className="hidden sm:block text-sm muted">
+                Built on presence, not noise.
+                <div className="mt-2 hairline w-44 opacity-70" />
               </div>
 
-              <div className="flex items-center justify-center">
-                {/* SMALL logo (THIS is what pulses) */}
+              <div className="flex flex-col items-center">
                 <div className="broT-pulse">
+                  {/* SMALL icon only */}
                   <img
                     src="/broTportal.png"
                     alt="broT Members Portal"
-                    className="h-20 w-20 sm:h-24 sm:w-24 rounded-2xl"
+                    className="h-14 w-14 sm:h-16 sm:w-16 rounded-2xl border border-white/10 bg-black/20"
                   />
                 </div>
               </div>
 
-              <div className="text-center sm:text-right">
-                <div className="text-sm text-white/80">Brotherhood without performance.</div>
-                <div className="mt-2 h-px w-56 bg-white/20 mx-auto sm:ml-auto sm:mr-0" />
+              <div className="hidden sm:block text-sm muted text-right">
+                Brotherhood without performance.
+                <div className="mt-2 hairline w-56 ml-auto opacity-70" />
               </div>
             </div>
 
-            {/* nav pills */}
-            <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-              <Link className="pill" href="/members">Home</Link>
-              <Link className="pill" href="/members/forms">Events</Link>
-              <Link className="pill" href="/members/rooms">Live</Link>
+            {/* Title + safety line (mobile-friendly) */}
+            <div className="mt-6 text-center">
+              <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">
+                broT Members Portal
+              </h1>
+              <p className="mt-2 text-sm muted">
+                Nothing auto-joins. Nothing is recorded. You’re safe.
+              </p>
+            </div>
+
+            {/* Pills nav (desktop row / mobile wraps) */}
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+              <Link href="/members" className="h-11 min-w-[110px] rounded-full px-6 grid place-items-center text-sm pill">
+                HOME
+              </Link>
+              <Link href="/members/forms" className="h-11 min-w-[110px] rounded-full px-6 grid place-items-center text-sm pill">
+                FORMS
+              </Link>
+              <Link href="/members/rooms" className="h-11 min-w-[110px] rounded-full px-6 grid place-items-center text-sm pill">
+                LOUNGE
+              </Link>
+              <Link href="/members/support" className="h-11 min-w-[110px] rounded-full px-6 grid place-items-center text-sm pill">
+                SUPPORT
+              </Link>
+            </div>
+
+            {/* Role + admin + logout */}
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-3 text-sm">
+              <div className="muted2">
+                Role: <span className="text-white">{role}</span>
+              </div>
+
+              {isAdmin ? (
+                <Link href="/admin/inbox" className="h-10 rounded-full px-5 grid place-items-center text-sm pillGhost">
+                  Admin Inbox
+                </Link>
+              ) : null}
+
+              <button onClick={logout} className="h-10 rounded-full px-5 text-sm pillGhost">
+                Log out
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* QUICK ACTIONS (real buttons, not links-that-look-like-text) */}
+        <div className="mt-6 grid gap-4 md:grid-cols-2">
+          <div className="glass rounded-2xl p-6">
+            <div className="flex items-center gap-3">
+              <img src="/logo.png" className="h-10 w-10 rounded-xl border border-white/10 bg-black/30" alt="broTher collecTive" />
+              <div>
+                <div className="text-lg font-semibold">Request Support</div>
+                <div className="text-sm muted">Resources • legal • medical • other</div>
+              </div>
+            </div>
+
+            <div className="mt-4 flex flex-wrap gap-3">
+              <Link href="/members/support" className="h-11 rounded-full px-6 grid place-items-center text-sm pill">
+                Open Support Form
+              </Link>
+              <div className="h-11 rounded-full px-6 grid place-items-center text-sm pillGhost">
+                Goes to admin inbox
+              </div>
+            </div>
+          </div>
+
+          <div className="glass rounded-2xl p-6">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl border border-white/10 bg-black/30 grid place-items-center">
+                <span className="text-xs muted2">GM</span>
+              </div>
+              <div>
+                <div className="text-lg font-semibold">Community</div>
+                <div className="text-sm muted">GroupMe for now. Portal chat later.</div>
+              </div>
+            </div>
+
+            <div className="mt-4 flex flex-wrap gap-3">
               <a
-                className="pill"
                 href="https://groupme.com/join_group/113145463/Wxy8CAFk"
                 target="_blank"
                 rel="noreferrer"
+                className="h-11 rounded-full px-6 grid place-items-center text-sm pill"
               >
-                Chat
+                Open GroupMe
               </a>
+              <div className="h-11 rounded-full px-6 grid place-items-center text-sm pillGhost">
+                Chat: coming soon
+              </div>
+            </div>
+          </div>
+
+          <div className="glass rounded-2xl p-6">
+            <div className="flex items-center gap-3">
+              <img src="/broTportal.png" className="h-10 w-10 rounded-xl border border-white/10 bg-black/30" alt="broT" />
+              <div>
+                <div className="text-lg font-semibold">broT Lounge</div>
+                <div className="text-sm muted">Rooms are secondary. Click opens. No auto-join.</div>
+              </div>
             </div>
 
-            {/* safety note + role + admin */}
-            <div className="mt-8 grid gap-4 sm:grid-cols-2 sm:items-center">
-              <div className="text-center sm:text-left">
-                <div className="text-sm text-white/80">
-                  Nothing auto-joins. Nothing is recorded. You’re safe.
-                </div>
-                <div className="mt-2 text-xs text-white/55">
-                  Quiet by design. Presence over performance.
-                </div>
+            <div className="mt-4">
+              <Link href="/members/rooms" className="h-11 rounded-full px-6 inline-grid place-items-center text-sm pill">
+                Enter Lounge
+              </Link>
+            </div>
+          </div>
+
+          <div className="glass rounded-2xl p-6">
+            <div className="flex items-center gap-3">
+              <img src="/brobot.png" className="h-10 w-10 rounded-xl border border-white/10 bg-black/30" alt="broBOT" />
+              <div>
+                <div className="text-lg font-semibold">broBOT</div>
+                <div className="text-sm muted">Space-mode companion. (Coming soon.)</div>
               </div>
+            </div>
 
-              <div className="flex flex-wrap items-center justify-center sm:justify-end gap-2">
-                <span className="pill pillDark">
-                  Role: <span className="ml-2 text-white">{role}</span>
-                </span>
-
-                {isAdmin ? (
-                  <Link className="pill pillDark" href="/admin/inbox">
-                    Admin Inbox
-                  </Link>
-                ) : null}
-
-                <button className="pill pillDark" onClick={logout}>
-                  Log out
-                </button>
+            <div className="mt-4 flex flex-wrap gap-3">
+              <Link href="/members/brobot" className="h-11 rounded-full px-6 grid place-items-center text-sm pillGhost">
+                Open broBOT
+              </Link>
+              <div className="h-11 rounded-full px-6 grid place-items-center text-sm pillGhost">
+                Portal-native later
               </div>
             </div>
           </div>
         </div>
 
-        {/* QUICK ACTIONS (real buttons, not dumb text links) */}
-        <div className="mt-6 grid gap-4 md:grid-cols-2">
-          <div className="glass rounded-[22px] p-6">
-            <div className="flex items-center gap-4">
-              <img
-                src="/logo.png"
-                alt="Support"
-                className="h-11 w-11 rounded-2xl border border-white/10 bg-black/30"
-              />
-              <div>
-                <div className="text-lg font-semibold">Request Support</div>
-                <div className="mt-1 text-sm text-white/70">
-                  Resources • legal • medical • other
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-4 flex flex-wrap gap-2">
-              <Link className="pill pillDark" href="/members/support">
-                Open Support Form
-              </Link>
-            </div>
-          </div>
-
-          <div className="glass rounded-[22px] p-6">
-            <div className="flex items-center gap-4">
-              <img
-                src="/brobot.png"
-                alt="broBOT"
-                className="h-11 w-11 rounded-2xl border border-white/10 bg-black/30"
-              />
-              <div>
-                <div className="text-lg font-semibold">broBOT</div>
-                <div className="mt-1 text-sm text-white/70">
-                  Coming soon — inside the portal (not a widget mess).
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-4">
-              <span className="pill pillDark opacity-70 cursor-not-allowed">
-                Open broBOT (soon)
-              </span>
-            </div>
-          </div>
-
-          <div className="glass rounded-[22px] p-6">
-            <div className="flex items-center gap-4">
-              <img
-                src="/brot-lounge.png"
-                alt="broT Lounge"
-                className="h-11 w-11 rounded-2xl border border-white/10 bg-black/30"
-              />
-              <div>
-                <div className="text-lg font-semibold">broT Lounge</div>
-                <div className="mt-1 text-sm text-white/70">
-                  Rooms are secondary. Click opens — no auto-join.
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-4">
-              <Link className="pill pillDark" href="/members/rooms">
-                Enter broT Lounge
-              </Link>
-            </div>
-          </div>
-
-          <div className="glass rounded-[22px] p-6">
-            <div className="flex items-center gap-4">
-              <img
-                src="/broTportal.png"
-                alt="Forms"
-                className="h-11 w-11 rounded-2xl border border-white/10 bg-black/30"
-              />
-              <div>
-                <div className="text-lg font-semibold">Forms</div>
-                <div className="mt-1 text-sm text-white/70">
-                  Google Forms for now. Native portal forms after launch.
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-4">
-              <Link className="pill pillDark" href="/members/forms">
-                Open Forms
-              </Link>
-            </div>
-          </div>
+        <div className="mt-8 text-center text-xs muted2">
+          Quiet by design. Presence over performance.
         </div>
       </div>
     </div>

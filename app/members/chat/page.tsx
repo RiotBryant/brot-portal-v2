@@ -49,9 +49,6 @@ export default function BroChat() {
 if (roleErr) console.error(roleErr);
 setRole(roleRow?.role || "member");
 
-      if (roleErr) console.error(roleErr);
-      setRole(roleRow?.role_name || "member");
-
       const { data: initialMessages, error: msgErr } = await supabase
         .from("group_messages")
         .select("id, content, created_at, profiles(username)")

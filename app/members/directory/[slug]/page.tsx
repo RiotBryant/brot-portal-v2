@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 
-type Profile = {
+type ProfileRow = {
   user_id: string;
   display_name: string | null;
   username: string | null;
@@ -14,35 +14,65 @@ type Profile = {
   email: string | null;
   instagram: string | null;
   tiktok: string | null;
-  twitter: string | null;
-  website: string | null;
+  x: string | null;
+  linkedin: string | null;
   bio: string | null;
 
-  avatar_url: string | null;
-  admin_photo_url: string | null;
-  internal_notes: string | null;
+  show_phone: boolean | null;
+  show_email: boolean | null;
+  show_instagram: boolean | null;
+  show_tiktok: boolean | null;
+  show_x: boolean | null;
+  show_linkedin: boolean | null;
+  show_bio: boolean | null;
 
-  show_phone: boolean;
-  show_email: boolean;
-  show_instagram: boolean;
-  show_tiktok: boolean;
-  show_twitter: boolean;
-  show_website: boolean;
-  show_bio: boolean;
+  avatar_path: string | null;
+  admin_photo_path: string | null;
+
+  // optional (only if you add later)
+  internal_notes?: string | null;
 };
 
-function isUuid(s: string) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
+type RoleRow = { role: "member" | "admin" | "superadmin" | string };
+
+function isUuidMaybe(s: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    s
+  );
 }
 
 export default function DirectoryDetailPage() {
   const router = useRouter();
-  const params = useParams<{ slug: string }>();
-  const slug = decodeURIComponent(params.slug);
+  const params = useParams();
+  const slug = String(params?.slug ?? "").trim();
 
-  const [meAdmin, setMeAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [p, setP] = useState<Profile | null>(null);
+  const [viewerId, setViewerId] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  const [profile, setProfile] = useState<ProfileRow | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [adminPhotoUrl, setAdminPhotoUrl] = useState<string | null>(null);
+
+  const safeItems = useMemo(() => {
+    if (!profile) return [];
+
+    const items: { label: string; value: string; href?: string }[] = [];
+
+    const on = (v: boolean | null | undefined) => v === true;
+
+    if (on(profile.show_phone) && profile.phone) items.push({ label: "Phone", value: profile.phone });
+    if (on(profile.show_email) && profile.email) items.push({ label: "Email", value: profile.email });
+
+    if (on(profile.show_instagram) && profile.instagram)
+      items.push({ label: "Instagram", value: profile.instagram });
+    if (on(profile.show_tiktok) && profile.tiktok) items.push({ label: "TikTok", value: profile.tiktok });
+    if (on(profile.show_x) && profile.x) items.push({ label: "X", value: profile.x });
+    if (on(profile.show_linkedin) && profile.linkedin)
+      items.push({ label: "LinkedIn", value: profile.linkedin });
+
+    return items;
+  }, [profile]);
 
   useEffect(() => {
     (async () => {
@@ -52,153 +82,289 @@ export default function DirectoryDetailPage() {
         return;
       }
 
-      // Check admin status from user_roles
-      const myId = sess.session.user.id;
+      const { data: u } = await supabase.auth.getUser();
+      const me = u.user?.id ?? null;
+      if (!me) {
+        router.replace("/login");
+        return;
+      }
+      setViewerId(me);
+
+      // role check
       const { data: roleRow } = await supabase
         .from("user_roles")
         .select("role")
-        .eq("user_id", myId)
+        .eq("user_id", me)
         .maybeSingle();
 
-      setMeAdmin(roleRow?.role === "admin" || roleRow?.role === "superadmin");
+      const role = (roleRow as RoleRow | null)?.role ?? "member";
+      setIsAdmin(role === "admin" || role === "superadmin");
 
-      // Fetch profile by username OR user_id
-      const q = supabase
+      // load profile by username OR by user_id
+      let q = supabase
         .from("profiles")
         .select(
           `
           user_id, display_name, username,
-          phone, email, instagram, tiktok, twitter, website, bio,
-          avatar_url, admin_photo_url, internal_notes,
-          show_phone, show_email, show_instagram, show_tiktok, show_twitter, show_website, show_bio
+          phone, email, instagram, tiktok, x, linkedin, bio,
+          show_phone, show_email, show_instagram, show_tiktok, show_x, show_linkedin, show_bio,
+          avatar_path, admin_photo_path
         `
         );
 
-      const { data, error } = isUuid(slug)
-        ? await q.eq("user_id", slug).maybeSingle()
-        : await q.ilike("username", slug).maybeSingle();
+      if (isUuidMaybe(slug)) {
+        q = q.eq("user_id", slug);
+      } else {
+        q = q.eq("username", slug);
+      }
 
-      if (!error) setP((data as Profile) ?? null);
+      const { data, error } = await q.maybeSingle();
+
+      if (error) console.error(error);
+      if (!data) {
+        setLoading(false);
+        setProfile(null);
+        return;
+      }
+
+      setProfile(data as ProfileRow);
+
+      // signed urls
+      const row = data as ProfileRow;
+
+      if (row.avatar_path) {
+        const { data: signed } = await supabase.storage
+          .from("avatars")
+          .createSignedUrl(row.avatar_path, 60 * 60);
+        setAvatarUrl(signed?.signedUrl ?? null);
+      }
+
+      if ((role === "admin" || role === "superadmin") && row.admin_photo_path) {
+        const { data: signed } = await supabase.storage
+          .from("admin-photos")
+          .createSignedUrl(row.admin_photo_path, 60 * 60);
+        setAdminPhotoUrl(signed?.signedUrl ?? null);
+      }
+
       setLoading(false);
     })();
   }, [router, slug]);
 
-  const memberFields = useMemo(() => {
-    if (!p) return [];
-    return [
-      { label: "Phone", value: p.phone, show: p.show_phone },
-      { label: "Email", value: p.email, show: p.show_email },
-      { label: "Instagram", value: p.instagram, show: p.show_instagram },
-      { label: "TikTok", value: p.tiktok, show: p.show_tiktok },
-      { label: "Twitter", value: p.twitter, show: p.show_twitter },
-      { label: "Website", value: p.website, show: p.show_website },
-      { label: "Bio", value: p.bio, show: p.show_bio },
-    ].filter((x) => x.show && x.value);
-  }, [p]);
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#07070b] text-white grid place-items-center">
+        <div className="opacity-70 text-sm">Loading…</div>
+      </div>
+    );
+  }
 
-  return (
-    <div className="min-h-screen bg-[#07070b] text-white">
-      <div className="mx-auto w-[min(980px,calc(100%-24px))] py-10">
-        <style>{`
-          .wrap { display:grid; grid-template-columns: 1fr; gap:14px; }
-          @media (min-width: 980px) { .wrap { grid-template-columns: 1fr 1fr; } }
-          .card { background: rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.10); border-radius: 22px; padding: 18px; }
-          .btn { height:38px; padding:0 14px; border-radius: 999px; border:1px solid rgba(255,255,255,0.14); background: rgba(255,255,255,0.06); display:inline-flex; align-items:center; gap:8px; }
-          .btn:hover { background: rgba(255,255,255,0.10); }
-          .pill { font-size: 12px; padding: 6px 10px; border-radius: 999px; background: rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.10); color: rgba(255,255,255,0.80); }
-          .row { display:flex; gap:12px; align-items:center; }
-          .avatar { width:60px; height:60px; border-radius: 999px; background: rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.10); overflow:hidden; display:flex; align-items:center; justify-content:center; font-weight:800; }
-          .avatar img { width:100%; height:100%; object-fit:cover; }
-          .label { font-size: 12px; color: rgba(255,255,255,0.65); }
-          .value { margin-top: 2px; font-weight: 600; }
-          .kv { padding: 12px 14px; border-radius: 16px; background: rgba(0,0,0,0.20); border: 1px solid rgba(255,255,255,0.08); }
-        `}</style>
-
-        <div className="flex items-center justify-between gap-3">
-          <Link href="/members/directory" className="btn">← Back</Link>
-          <div className="flex items-center gap-2">
-            <Link href="/members/profile" className="btn">My Profile</Link>
+  if (!profile) {
+    return (
+      <div className="min-h-screen bg-[#07070b] text-white">
+        <div className="max-w-[980px] mx-auto px-5 py-10">
+          <div className="flex items-center justify-between">
+            <Link href="/members/directory" className="pill text-sm">
+              ← Directory
+            </Link>
+            <Link href="/members" className="pill text-sm">
+              Home
+            </Link>
+          </div>
+          <div className="mt-8 glass p-6">
+            <div className="text-xl font-semibold">Not found</div>
+            <div className="text-white/60 text-sm mt-1">That member profile doesn’t exist.</div>
           </div>
         </div>
 
-        {loading ? (
-          <div className="mt-6 card">Loading…</div>
-        ) : !p ? (
-          <div className="mt-6 card">Not found.</div>
-        ) : (
-          <div className="mt-6 wrap">
-            {/* LEFT: what MEMBERS can see */}
-            <div className="card">
-              <div className="row">
-                <div className="avatar">
-                  {p.avatar_url ? <img src={p.avatar_url} alt="" /> : <span>{(p.display_name || "M").slice(0,1)}</span>}
-                </div>
-                <div className="min-w-0">
-                  <div className="text-xl font-semibold">{p.display_name || "Member"}</div>
-                  <div className="text-white/70">@{p.username || "no-username"}</div>
-                  <div className="mt-2"><span className="pill">Member view</span></div>
-                </div>
-              </div>
+        <style>{baseCss}</style>
+      </div>
+    );
+  }
 
-              <div className="mt-4 grid gap-3">
-                {memberFields.length === 0 ? (
-                  <div className="text-white/70">This member hasn’t shared any contact details yet.</div>
-                ) : (
-                  memberFields.map((f) => (
-                    <div key={f.label} className="kv">
-                      <div className="label">{f.label}</div>
-                      <div className="value">{f.value}</div>
-                    </div>
-                  ))
-                )}
-              </div>
+  const title = profile.display_name?.trim() || "Member";
+  const uname = profile.username?.trim() || "";
+
+  return (
+    <div className="min-h-screen bg-[#07070b] text-white">
+      <style>{baseCss}</style>
+
+      <div className="max-w-[980px] mx-auto px-5 py-10 pb-24">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex gap-2">
+            <Link href="/members/directory" className="pill text-sm">
+              ← Directory
+            </Link>
+            <Link href="/members" className="pill text-sm">
+              Home
+            </Link>
+          </div>
+
+          <div className="flex gap-2">
+            {viewerId === profile.user_id ? (
+              <Link href="/members/profile" className="pill text-sm">
+                Edit your profile
+              </Link>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="glass mt-5 p-5">
+          <div className="flex items-center gap-4">
+            <div className="avatarBig">
+              {avatarUrl ? <img src={avatarUrl} alt="" /> : null}
             </div>
 
-            {/* RIGHT: what ADMINS can see */}
-            <div className="card">
-              <div className="flex items-center justify-between">
-                <div className="text-lg font-semibold">Admin view</div>
-                <span className="pill">{meAdmin ? "Admin enabled" : "Not admin"}</span>
-              </div>
-
-              {!meAdmin ? (
-                <div className="mt-3 text-white/70">
-                  You’re not marked as admin, so you can’t see admin-only data here.
-                </div>
-              ) : (
-                <div className="mt-4 grid gap-3">
-                  {/* Always show full data if present (no “empty:” rows) */}
-                  {p.phone ? <div className="kv"><div className="label">Phone</div><div className="value">{p.phone}</div></div> : null}
-                  {p.email ? <div className="kv"><div className="label">Email</div><div className="value">{p.email}</div></div> : null}
-                  {p.instagram ? <div className="kv"><div className="label">Instagram</div><div className="value">{p.instagram}</div></div> : null}
-                  {p.tiktok ? <div className="kv"><div className="label">TikTok</div><div className="value">{p.tiktok}</div></div> : null}
-                  {p.twitter ? <div className="kv"><div className="label">Twitter</div><div className="value">{p.twitter}</div></div> : null}
-                  {p.website ? <div className="kv"><div className="label">Website</div><div className="value">{p.website}</div></div> : null}
-                  {p.bio ? <div className="kv"><div className="label">Bio</div><div className="value">{p.bio}</div></div> : null}
-
-                  <div className="kv">
-                    <div className="label">Admin-only photo</div>
-                    {p.admin_photo_url ? (
-                      <img
-                        src={p.admin_photo_url}
-                        alt=""
-                        style={{ width: "100%", maxHeight: 260, objectFit: "cover", borderRadius: 14, marginTop: 10 }}
-                      />
-                    ) : (
-                      <div className="text-white/70 mt-2">No admin photo uploaded.</div>
-                    )}
-                  </div>
-
-                  <div className="kv">
-                    <div className="label">Internal notes</div>
-                    <div className="value">{p.internal_notes || "—"}</div>
-                  </div>
-                </div>
-              )}
+            <div className="min-w-0">
+              <div className="text-2xl font-semibold tracking-tight truncate">{title}</div>
+              {uname ? <div className="text-white/60 text-sm">@{uname}</div> : null}
             </div>
           </div>
-        )}
+
+          <div className={`grid2 mt-5 ${isAdmin ? "admin" : ""}`}>
+            {/* Member-safe */}
+            <div className="card">
+              <div className="text-lg font-semibold">Member View</div>
+
+              {profile.show_bio && profile.bio ? (
+                <div className="mt-3">
+                  <div className="tiny mb-1">Bio</div>
+                  <div className="text-white/80 leading-relaxed">{profile.bio}</div>
+                </div>
+              ) : null}
+
+              {safeItems.length ? (
+                <div className="mt-4 list">
+                  {safeItems.map((it) => (
+                    <div key={it.label} className="row">
+                      <div className="tiny">{it.label}</div>
+                      <div className="text-white/85 break-words">{it.value}</div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="mt-4 text-white/55 text-sm">No shared contact info.</div>
+              )}
+            </div>
+
+            {/* Admin-only */}
+            {isAdmin ? (
+              <div className="card">
+                <div className="text-lg font-semibold">Admin View</div>
+                <div className="tiny mt-1">Back-of-house only.</div>
+
+                <div className="mt-4">
+                  <div className="tiny mb-2">Admin Photo</div>
+                  <div className="adminPhoto">
+                    {adminPhotoUrl ? <img src={adminPhotoUrl} alt="" /> : <div className="tiny">None</div>}
+                  </div>
+                </div>
+
+                <div className="mt-4 list">
+                  {profile.phone ? (
+                    <div className="row">
+                      <div className="tiny">Phone</div>
+                      <div className="text-white/85 break-words">{profile.phone}</div>
+                    </div>
+                  ) : null}
+                  {profile.email ? (
+                    <div className="row">
+                      <div className="tiny">Email</div>
+                      <div className="text-white/85 break-words">{profile.email}</div>
+                    </div>
+                  ) : null}
+                  {profile.instagram ? (
+                    <div className="row">
+                      <div className="tiny">Instagram</div>
+                      <div className="text-white/85 break-words">{profile.instagram}</div>
+                    </div>
+                  ) : null}
+                  {profile.tiktok ? (
+                    <div className="row">
+                      <div className="tiny">TikTok</div>
+                      <div className="text-white/85 break-words">{profile.tiktok}</div>
+                    </div>
+                  ) : null}
+                  {profile.x ? (
+                    <div className="row">
+                      <div className="tiny">X</div>
+                      <div className="text-white/85 break-words">{profile.x}</div>
+                    </div>
+                  ) : null}
+                  {profile.linkedin ? (
+                    <div className="row">
+                      <div className="tiny">LinkedIn</div>
+                      <div className="text-white/85 break-words">{profile.linkedin}</div>
+                    </div>
+                  ) : null}
+                </div>
+
+                {/* Internal notes later (we’ll add column + UI next) */}
+              </div>
+            ) : null}
+          </div>
+        </div>
       </div>
     </div>
   );
 }
+
+const baseCss = `
+  .glass {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.10);
+    box-shadow: 0 0 60px rgba(80,170,255,0.06);
+    border-radius: 24px;
+  }
+  .pill {
+    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.06);
+    border-radius: 999px;
+    height: 42px;
+    padding: 0 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform .12s ease, border-color .12s ease, background .12s ease;
+  }
+  .pill:hover { transform: translateY(-1px); border-color: rgba(255,255,255,0.22); background: rgba(255,255,255,0.08); }
+  .tiny { color: rgba(255,255,255,0.55); font-size: 12px; }
+
+  .avatarBig{
+    width: 88px; height: 88px; border-radius: 26px;
+    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.06);
+    overflow:hidden;
+    flex: 0 0 auto;
+  }
+  .avatarBig img{ width:100%; height:100%; object-fit:cover; display:block; }
+
+  .grid2{ display:grid; gap: 14px; grid-template-columns: 1fr; }
+  @media (min-width: 980px){ .grid2.admin{ grid-template-columns: 1fr 1fr; } }
+
+  .card{
+    background: rgba(0,0,0,0.28);
+    border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 22px;
+    padding: 16px;
+  }
+
+  .list{ display:flex; flex-direction:column; gap: 10px; margin-top: 6px; }
+  .row{
+    display:flex; justify-content:space-between; gap: 14px;
+    border-top: 1px solid rgba(255,255,255,0.08);
+    padding-top: 10px;
+  }
+  .row:first-child{ border-top:none; padding-top:0; }
+
+  .adminPhoto{
+    width: 100%;
+    border-radius: 18px;
+    border: 1px solid rgba(255,255,255,0.10);
+    background: rgba(255,255,255,0.05);
+    overflow: hidden;
+    min-height: 160px;
+    display:grid;
+    place-items:center;
+  }
+  .adminPhoto img{ width:100%; height:100%; object-fit:cover; display:block; }
+`;

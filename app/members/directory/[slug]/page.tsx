@@ -1,256 +1,203 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
 
-type ProfileRow = {
+type Profile = {
   user_id: string;
   display_name: string | null;
   username: string | null;
 
-  email: string | null;
   phone: string | null;
-  bio: string | null;
-
+  email: string | null;
   instagram: string | null;
   tiktok: string | null;
   twitter: string | null;
+  website: string | null;
+  bio: string | null;
 
-  avatar_url: string | null;      // member-facing
-  admin_photo_url: string | null; // admin-only
+  avatar_url: string | null;
+  admin_photo_url: string | null;
+  internal_notes: string | null;
+
+  show_phone: boolean;
+  show_email: boolean;
+  show_instagram: boolean;
+  show_tiktok: boolean;
+  show_twitter: boolean;
+  show_website: boolean;
+  show_bio: boolean;
 };
 
-export default function DirectoryProfilePage() {
+function isUuid(s: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
+}
+
+export default function DirectoryDetailPage() {
   const router = useRouter();
   const params = useParams<{ slug: string }>();
-  const slug = params?.slug;
+  const slug = decodeURIComponent(params.slug);
 
+  const [meAdmin, setMeAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [role, setRole] = useState<"member" | "admin" | "superadmin">("member");
-  const [row, setRow] = useState<ProfileRow | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  const isAdmin = useMemo(() => role === "admin" || role === "superadmin", [role]);
+  const [p, setP] = useState<Profile | null>(null);
 
   useEffect(() => {
     (async () => {
-      const { data: sessionData } = await supabase.auth.getSession();
-      if (!sessionData.session) {
+      const { data: sess } = await supabase.auth.getSession();
+      if (!sess.session) {
         router.replace("/login");
         return;
       }
 
-      const { data: userData } = await supabase.auth.getUser();
-      const uid = userData.user?.id;
-      if (!uid) {
-        router.replace("/login");
-        return;
-      }
-
-      const { data: r } = await supabase
+      // Check admin status from user_roles
+      const myId = sess.session.user.id;
+      const { data: roleRow } = await supabase
         .from("user_roles")
         .select("role")
-        .eq("user_id", uid)
+        .eq("user_id", myId)
         .maybeSingle();
 
-      setRole((r?.role as any) ?? "member");
+      setMeAdmin(roleRow?.role === "admin" || roleRow?.role === "superadmin");
 
-      // Find the profile by username OR by user_id (slug can be either)
-      const { data: prof, error: profErr } = await supabase
+      // Fetch profile by username OR user_id
+      const q = supabase
         .from("profiles")
         .select(
-          "user_id, display_name, username, email, phone, bio, instagram, tiktok, twitter, avatar_url, admin_photo_url"
-        )
-        .or(`username.eq.${slug},user_id.eq.${slug}`)
-        .maybeSingle();
+          `
+          user_id, display_name, username,
+          phone, email, instagram, tiktok, twitter, website, bio,
+          avatar_url, admin_photo_url, internal_notes,
+          show_phone, show_email, show_instagram, show_tiktok, show_twitter, show_website, show_bio
+        `
+        );
 
-      if (profErr) {
-        setError(profErr.message);
-        setRow(null);
-      } else if (!prof) {
-        setError("Profile not found.");
-        setRow(null);
-      } else {
-        setRow(prof as ProfileRow);
-        setError(null);
-      }
+      const { data, error } = isUuid(slug)
+        ? await q.eq("user_id", slug).maybeSingle()
+        : await q.ilike("username", slug).maybeSingle();
 
+      if (!error) setP((data as Profile) ?? null);
       setLoading(false);
     })();
   }, [router, slug]);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#07070b] text-white grid place-items-center">
-        <div className="opacity-70 text-sm">Loading…</div>
-      </div>
-    );
-  }
+  const memberFields = useMemo(() => {
+    if (!p) return [];
+    return [
+      { label: "Phone", value: p.phone, show: p.show_phone },
+      { label: "Email", value: p.email, show: p.show_email },
+      { label: "Instagram", value: p.instagram, show: p.show_instagram },
+      { label: "TikTok", value: p.tiktok, show: p.show_tiktok },
+      { label: "Twitter", value: p.twitter, show: p.show_twitter },
+      { label: "Website", value: p.website, show: p.show_website },
+      { label: "Bio", value: p.bio, show: p.show_bio },
+    ].filter((x) => x.show && x.value);
+  }, [p]);
 
   return (
     <div className="min-h-screen bg-[#07070b] text-white">
-      <style>{`
-        .wrap { width: min(980px, calc(100% - 28px)); margin: 0 auto; padding: 22px 0 60px; }
-        .topbar { display:flex; align-items:center; justify-content:space-between; gap: 16px; }
-        .btn {
-          display:inline-flex; align-items:center; justify-content:center;
-          height: 42px; padding: 0 14px; border-radius: 999px;
-          background: rgba(255,255,255,0.06);
-          border: 1px solid rgba(255,255,255,0.12);
-          color: #fff; text-decoration:none;
-          transition: transform .12s ease, background .12s ease, border-color .12s ease;
-        }
-        .btn:hover { transform: translateY(-1px); background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.22); }
-        .card {
-          margin-top: 16px;
-          background: rgba(255,255,255,0.04);
-          border: 1px solid rgba(255,255,255,0.10);
-          border-radius: 24px;
-          padding: 18px;
-          box-shadow: 0 0 70px rgba(80,170,255,0.06);
-        }
-        .grid { display:grid; gap: 14px; grid-template-columns: 1.1fr 0.9fr; }
-        @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }
-        .pill { display:inline-flex; gap: 8px; align-items:center; padding: 7px 10px; border-radius: 999px;
-          background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.10); font-size: 12px; color: rgba(255,255,255,0.75); }
-        .label { font-size: 12px; color: rgba(255,255,255,0.55); }
-        .value { font-size: 14px; color: rgba(255,255,255,0.92); }
-        .avatar {
-          width: 74px; height: 74px; border-radius: 22px;
-          border: 1px solid rgba(255,255,255,0.12);
-          background: rgba(0,0,0,0.35);
-          display:grid; place-items:center;
-          overflow:hidden;
-        }
-        .avatar img { width: 100%; height: 100%; object-fit: cover; }
-        .bigPhoto {
-          border-radius: 20px;
-          border: 1px solid rgba(255,255,255,0.12);
-          background: rgba(0,0,0,0.35);
-          overflow:hidden;
-        }
-        .bigPhoto img { width: 100%; height: 260px; object-fit: cover; display:block; }
-        .tiny { font-size: 12px; color: rgba(255,255,255,0.55); margin-top: 8px; line-height: 1.35; }
-        .sectionTitle { font-weight: 600; font-size: 14px; margin-top: 12px; }
-        .divider { height: 1px; background: rgba(255,255,255,0.08); margin: 14px 0; }
-      `}</style>
+      <div className="mx-auto w-[min(980px,calc(100%-24px))] py-10">
+        <style>{`
+          .wrap { display:grid; grid-template-columns: 1fr; gap:14px; }
+          @media (min-width: 980px) { .wrap { grid-template-columns: 1fr 1fr; } }
+          .card { background: rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.10); border-radius: 22px; padding: 18px; }
+          .btn { height:38px; padding:0 14px; border-radius: 999px; border:1px solid rgba(255,255,255,0.14); background: rgba(255,255,255,0.06); display:inline-flex; align-items:center; gap:8px; }
+          .btn:hover { background: rgba(255,255,255,0.10); }
+          .pill { font-size: 12px; padding: 6px 10px; border-radius: 999px; background: rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.10); color: rgba(255,255,255,0.80); }
+          .row { display:flex; gap:12px; align-items:center; }
+          .avatar { width:60px; height:60px; border-radius: 999px; background: rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.10); overflow:hidden; display:flex; align-items:center; justify-content:center; font-weight:800; }
+          .avatar img { width:100%; height:100%; object-fit:cover; }
+          .label { font-size: 12px; color: rgba(255,255,255,0.65); }
+          .value { margin-top: 2px; font-weight: 600; }
+          .kv { padding: 12px 14px; border-radius: 16px; background: rgba(0,0,0,0.20); border: 1px solid rgba(255,255,255,0.08); }
+        `}</style>
 
-      <div className="wrap">
-        <div className="topbar">
-          <div className="flex items-center gap-3">
-            <Link href="/members/directory" className="btn">← Back</Link>
-            <div className="pill">Directory • Members only</div>
+        <div className="flex items-center justify-between gap-3">
+          <Link href="/members/directory" className="btn">← Back</Link>
+          <div className="flex items-center gap-2">
+            <Link href="/members/profile" className="btn">My Profile</Link>
           </div>
-          <Link href="/members" className="btn">Portal Home</Link>
         </div>
 
-        <div className="card">
-          {error ? (
-            <div>
-              <div className="text-lg font-semibold">Couldn’t load profile</div>
-              <div className="mt-2 text-sm text-white/70">{error}</div>
-            </div>
-          ) : row ? (
-            <>
-              <div className="grid">
-                {/* Left: identity + info */}
-                <div>
-                  <div className="flex items-center gap-14">
-                    <div className="avatar">
-                      {row.avatar_url ? (
-                        <img src={row.avatar_url} alt="Avatar" />
-                      ) : (
-                        <div className="text-sm text-white/60">No avatar</div>
-                      )}
-                    </div>
-
-                    <div>
-                      <div className="text-2xl font-semibold tracking-tight">
-                        {row.display_name || row.username || "Member"}
-                      </div>
-                      <div className="mt-1 text-sm text-white/65">
-                        @{row.username || "no-username"}
-                      </div>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {row.email ? <span className="pill">Email: {row.email}</span> : null}
-                        {row.phone ? <span className="pill">Phone: {row.phone}</span> : null}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="divider" />
-
-                  <div className="sectionTitle">Bio</div>
-                  <div className="mt-2 text-sm text-white/75">
-                    {row.bio ? row.bio : <span className="text-white/45">No bio yet.</span>}
-                  </div>
-
-                  <div className="divider" />
-
-                  <div className="sectionTitle">Social</div>
-                  <div className="mt-2 grid gap-2">
-                    <div>
-                      <div className="label">Instagram</div>
-                      <div className="value">{row.instagram || "—"}</div>
-                    </div>
-                    <div>
-                      <div className="label">TikTok</div>
-                      <div className="value">{row.tiktok || "—"}</div>
-                    </div>
-                    <div>
-                      <div className="label">Twitter/X</div>
-                      <div className="value">{row.twitter || "—"}</div>
-                    </div>
-                  </div>
+        {loading ? (
+          <div className="mt-6 card">Loading…</div>
+        ) : !p ? (
+          <div className="mt-6 card">Not found.</div>
+        ) : (
+          <div className="mt-6 wrap">
+            {/* LEFT: what MEMBERS can see */}
+            <div className="card">
+              <div className="row">
+                <div className="avatar">
+                  {p.avatar_url ? <img src={p.avatar_url} alt="" /> : <span>{(p.display_name || "M").slice(0,1)}</span>}
                 </div>
+                <div className="min-w-0">
+                  <div className="text-xl font-semibold">{p.display_name || "Member"}</div>
+                  <div className="text-white/70">@{p.username || "no-username"}</div>
+                  <div className="mt-2"><span className="pill">Member view</span></div>
+                </div>
+              </div>
 
-                {/* Right: admin photo */}
-                <div>
-                  <div className="sectionTitle">Photo</div>
-                  <div className="tiny">
-                    This is the member-facing card photo. Admin photo is only visible to admins.
-                  </div>
+              <div className="mt-4 grid gap-3">
+                {memberFields.length === 0 ? (
+                  <div className="text-white/70">This member hasn’t shared any contact details yet.</div>
+                ) : (
+                  memberFields.map((f) => (
+                    <div key={f.label} className="kv">
+                      <div className="label">{f.label}</div>
+                      <div className="value">{f.value}</div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
 
-                  <div className="mt-3 bigPhoto">
-                    {row.avatar_url ? (
-                      <img src={row.avatar_url} alt="Member photo" />
+            {/* RIGHT: what ADMINS can see */}
+            <div className="card">
+              <div className="flex items-center justify-between">
+                <div className="text-lg font-semibold">Admin view</div>
+                <span className="pill">{meAdmin ? "Admin enabled" : "Not admin"}</span>
+              </div>
+
+              {!meAdmin ? (
+                <div className="mt-3 text-white/70">
+                  You’re not marked as admin, so you can’t see admin-only data here.
+                </div>
+              ) : (
+                <div className="mt-4 grid gap-3">
+                  {/* Always show full data if present (no “empty:” rows) */}
+                  {p.phone ? <div className="kv"><div className="label">Phone</div><div className="value">{p.phone}</div></div> : null}
+                  {p.email ? <div className="kv"><div className="label">Email</div><div className="value">{p.email}</div></div> : null}
+                  {p.instagram ? <div className="kv"><div className="label">Instagram</div><div className="value">{p.instagram}</div></div> : null}
+                  {p.tiktok ? <div className="kv"><div className="label">TikTok</div><div className="value">{p.tiktok}</div></div> : null}
+                  {p.twitter ? <div className="kv"><div className="label">Twitter</div><div className="value">{p.twitter}</div></div> : null}
+                  {p.website ? <div className="kv"><div className="label">Website</div><div className="value">{p.website}</div></div> : null}
+                  {p.bio ? <div className="kv"><div className="label">Bio</div><div className="value">{p.bio}</div></div> : null}
+
+                  <div className="kv">
+                    <div className="label">Admin-only photo</div>
+                    {p.admin_photo_url ? (
+                      <img
+                        src={p.admin_photo_url}
+                        alt=""
+                        style={{ width: "100%", maxHeight: 260, objectFit: "cover", borderRadius: 14, marginTop: 10 }}
+                      />
                     ) : (
-                      <div className="h-[260px] grid place-items-center text-sm text-white/60">
-                        No photo yet
-                      </div>
+                      <div className="text-white/70 mt-2">No admin photo uploaded.</div>
                     )}
                   </div>
 
-                  {isAdmin ? (
-                    <>
-                      <div className="divider" />
-                      <div className="sectionTitle">Admin Photo (admins only)</div>
-                      <div className="tiny">
-                        Private back-of-house photo. Not shown to members unless you’re admin.
-                      </div>
-
-                      <div className="mt-3 bigPhoto">
-                        {row.admin_photo_url ? (
-                          <img src={row.admin_photo_url} alt="Admin photo" />
-                        ) : (
-                          <div className="h-[260px] grid place-items-center text-sm text-white/60">
-                            No admin photo
-                          </div>
-                        )}
-                      </div>
-                    </>
-                  ) : null}
+                  <div className="kv">
+                    <div className="label">Internal notes</div>
+                    <div className="value">{p.internal_notes || "—"}</div>
+                  </div>
                 </div>
-              </div>
-            </>
-          ) : null}
-        </div>
-
-        <div className="tiny">
-          If you see “Profile not found”, that member has no profile row yet (or no username set).
-        </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

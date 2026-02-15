@@ -106,7 +106,7 @@ export default function MembersPage() {
 
           <div className="topActions">
             {isAdmin ? (
-              <Link className="chipBtn" href="/members/admin/inbox">
+              <Link className="chipBtn" href="/members/admin/inbox" className="text-xs text-white70 hover:text-white".
                 Admin Inbox
               </Link>
             ) : null}

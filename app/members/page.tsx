@@ -113,7 +113,7 @@ export default function MembersPage() {
               <img
                 src="/broTportal.png"
                 alt="broT Members Portal"
-                className="h-14 w-14 sm:h-16 sm:w-16 rounded-2xl"
+                className="h-8 w-8 sm:h-16 sm:w-16 rounded-2xl"
               />
             </div>
 

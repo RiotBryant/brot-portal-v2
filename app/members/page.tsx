@@ -1,21 +1,81 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 
 type Role = "member" | "admin" | "superadmin";
 
+function Card({
+  title,
+  desc,
+  children,
+}: {
+  title: string;
+  desc: string;
+  children?: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 shadow-[0_0_0_1px_rgba(255,255,255,0.03)] backdrop-blur">
+      <div className="text-lg font-semibold">{title}</div>
+      <div className="mt-1 text-sm text-white/65">{desc}</div>
+      {children ? <div className="mt-5">{children}</div> : null}
+    </div>
+  );
+}
+
+function PrimaryButton({
+  href,
+  children,
+  newTab,
+}: {
+  href: string;
+  children: React.ReactNode;
+  newTab?: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      target={newTab ? "_blank" : undefined}
+      rel={newTab ? "noreferrer" : undefined}
+      className="inline-flex w-full items-center justify-center rounded-2xl border border-[#46AAFF]/35 bg-black/40 px-5 py-3 text-sm font-medium text-white hover:border-[#46AAFF]/70 hover:shadow-[0_0_30px_rgba(70,170,255,0.22)]"
+    >
+      {children}
+    </Link>
+  );
+}
+
+function GhostButton({
+  href,
+  children,
+  newTab,
+}: {
+  href: string;
+  children: React.ReactNode;
+  newTab?: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      target={newTab ? "_blank" : undefined}
+      rel={newTab ? "noreferrer" : undefined}
+      className="inline-flex w-full items-center justify-center rounded-2xl border border-white/12 bg-white/[0.03] px-5 py-3 text-sm font-medium text-white/85 hover:border-white/25 hover:text-white"
+    >
+      {children}
+    </Link>
+  );
+}
+
 export default function MembersPage() {
   const router = useRouter();
-  const [loading, setLoading] = useState(true);
   const [role, setRole] = useState<Role>("member");
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase.auth.getSession();
-      if (!data.session) {
+      const { data: sess } = await supabase.auth.getSession();
+      if (!sess.session) {
         router.push("/login");
         return;
       }
@@ -23,11 +83,10 @@ export default function MembersPage() {
       const { data: r } = await supabase
         .from("user_roles")
         .select("role")
-        .eq("user_id", data.session.user.id)
+        .eq("user_id", sess.session.user.id)
         .maybeSingle();
 
-      setRole((r?.role as Role) ?? "member");
-      setLoading(false);
+      setRole(((r?.role as Role) ?? "member") as Role);
     })();
   }, [router]);
 
@@ -36,120 +95,152 @@ export default function MembersPage() {
     router.push("/login");
   }
 
-  if (loading) return <div className="p-6 text-white/70">Loading…</div>;
-
   return (
     <div className="min-h-screen bg-[#07070b] text-white">
-      {/* subtle “space” vibe */}
-      <div className="absolute inset-0 pointer-events-none opacity-30"
-           style={{ background: "radial-gradient(60% 60% at 50% 0%, rgba(70,170,255,0.18), transparent 60%)" }} />
+      {/* ambient glow */}
+      <div
+        className="pointer-events-none absolute inset-0 opacity-35"
+        style={{
+          background:
+            "radial-gradient(55% 55% at 50% 0%, rgba(70,170,255,0.18), transparent 65%), radial-gradient(40% 40% at 80% 30%, rgba(168,85,247,0.08), transparent 60%)",
+        }}
+      />
 
-      <div className="relative mx-auto max-w-3xl px-6 py-10">
+      <div className="relative mx-auto max-w-6xl px-6 py-10">
+        {/* top bar */}
         <div className="flex items-center justify-between">
-          <div className="text-xs text-white/50">
-            Role: <span className="text-white/80">{role}</span>
+          <div className="flex items-center gap-3">
+            <span className="rounded-full border border-white/10 bg-black/40 px-3 py-1 text-xs text-white/70">
+              Role: <span className="text-white/90">{role}</span>
+            </span>
+
+            {(role === "admin" || role === "superadmin") && (
+              <Link
+                href="/admin/inbox"
+                className="rounded-full border border-white/12 bg-white/[0.03] px-3 py-1 text-xs text-white/80 hover:border-white/25 hover:text-white"
+              >
+                Admin Inbox
+              </Link>
+            )}
           </div>
+
           <button
             onClick={logout}
-            className="rounded-xl border border-white/15 px-4 py-2 text-sm text-white/80 hover:border-white/30 hover:text-white"
+            className="rounded-2xl border border-white/12 bg-white/[0.03] px-4 py-2 text-sm text-white/80 hover:border-white/25 hover:text-white"
           >
             Log out
           </button>
         </div>
 
-        {/* Hero */}
-        <div className="mt-10 text-center">
-          {/* Replace src with your broT portal logo once you add it to /public */}
-          <div className="mx-auto h-44 w-44 rounded-full border border-white/10 bg-black/30 shadow-[0_0_50px_rgba(70,170,255,0.20)] animate-[pulse_5s_ease-in-out_infinite]" />
-          <h1 className="mt-6 text-3xl font-semibold tracking-tight">broT Members Portal</h1>
-          <p className="mt-3 text-white/70">
-            Built on presence, not noise. Brotherhood without performance.
-          </p>
-          <p className="mt-2 text-xs text-white/45">
-            Nothing auto-joins. Nothing is recorded here. You’re safe.
-          </p>
+        {/* hero */}
+        <div className="mt-10 grid gap-8 lg:grid-cols-[1.2fr_0.8fr]">
+          <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-7 backdrop-blur">
+            <div className="flex items-center gap-4">
+              {/* Pulsing logo */}
+              <div className="relative">
+                <div className="absolute -inset-3 rounded-3xl opacity-50 blur-xl animate-pulse bg-[#46AAFF]/20" />
+                <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-black/40 p-3">
+                  {/* expects public/broTportal.png */}
+                  <Image
+                    src="/broTportal.png"
+                    alt="broT Members Portal"
+                    width={92}
+                    height={92}
+                    priority
+                  />
+                </div>
+              </div>
+
+              <div>
+                <div className="text-3xl font-semibold tracking-tight">
+                  broT Members Portal
+                </div>
+                <div className="mt-2 text-sm text-white/70">
+                  Built on presence, not noise. Brotherhood without performance.
+                </div>
+                <div className="mt-2 text-xs text-white/55">
+                  Nothing auto-joins. Nothing is recorded here. You’re safe.
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 grid gap-3 sm:grid-cols-2">
+              <PrimaryButton href="/members/support">Request Support</PrimaryButton>
+              <GhostButton href="https://groupme.com/join_group/113145463/Wxy8CAFk" newTab>
+                Open GroupMe
+              </GhostButton>
+            </div>
+          </div>
+
+          {/* broBOT teaser */}
+          <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-7 backdrop-blur">
+            <div className="text-lg font-semibold">broBOT</div>
+            <div className="mt-1 text-sm text-white/65">
+              Space-mode companion for grounding, guidance, and routing.
+            </div>
+
+            <div className="mt-5 rounded-2xl border border-white/10 bg-black/35 p-4 text-sm text-white/75">
+              Coming soon: broBOT inside the portal (not a widget mess).
+            </div>
+
+            <div className="mt-5">
+              <GhostButton href="/members/brobot">Open broBOT (Coming Soon)</GhostButton>
+            </div>
+          </div>
         </div>
 
-        {/* Primary action */}
-        <div className="mt-10 rounded-2xl border border-white/10 bg-white/5 p-6">
-          <h2 className="text-lg font-semibold">Request Support</h2>
-          <p className="mt-2 text-sm text-white/70">
-            Resources, legal, medical, or something personal. This goes to the admin inbox.
-          </p>
-          <Link
-            href="/members/support"
-            className="mt-5 inline-flex w-full items-center justify-center rounded-2xl border border-[#46AAFF]/40 bg-black/30 px-5 py-3 text-sm font-medium hover:border-[#46AAFF]/70 hover:shadow-[0_0_30px_rgba(70,170,255,0.25)]"
+        {/* main grid */}
+        <div className="mt-10 grid gap-6 lg:grid-cols-3">
+          <Card
+            title="Support"
+            desc="Private request → goes to the admin inbox. Trackable and calm."
           >
-            Open Support Form
-          </Link>
-        </div>
+            <div className="grid gap-3">
+              <PrimaryButton href="/members/support">Open Support Form</PrimaryButton>
+              <div className="text-xs text-white/50">
+                Categories: resources • legal • medical • other
+              </div>
+            </div>
+          </Card>
 
-        {/* Secondary */}
-        <div className="mt-6 grid gap-4 sm:grid-cols-2">
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
-            <h3 className="font-semibold">Community</h3>
-            <p className="mt-2 text-sm text-white/70">GroupMe for now. Portal chat later.</p>
-
-            <a
-              href="https://groupme.com/join_group/113145463/Wxy8CAFk"
-              target="_blank"
-              rel="noreferrer"
-              className="mt-4 inline-flex w-full items-center justify-center rounded-2xl border border-white/15 bg-black/30 px-4 py-3 text-sm hover:border-white/30"
-            >
-              Open GroupMe
-            </a>
-
-            <Link
-              href="/members/rooms"
-              className="mt-3 inline-flex w-full items-center justify-center rounded-2xl border border-white/15 bg-black/30 px-4 py-3 text-sm hover:border-white/30"
-            >
-              Enter Rooms
-            </Link>
-          </div>
-
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
-            <h3 className="font-semibold">Forms</h3>
-            <p className="mt-2 text-sm text-white/70">
-              Temporary Google forms. Native portal forms coming soon.
-            </p>
-            <Link
-              href="/members/forms"
-              className="mt-4 inline-flex w-full items-center justify-center rounded-2xl border border-white/15 bg-black/30 px-4 py-3 text-sm hover:border-white/30"
-            >
-              Open Forms
-            </Link>
-          </div>
-        </div>
-
-        {/* broBOT */}
-        <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-6">
-          <h3 className="font-semibold">broBOT</h3>
-          <p className="mt-2 text-sm text-white/70">
-            Space-mode companion. Guidance, grounding, and routing. (Full chamber coming soon.)
-          </p>
-          <Link
-            href="/members/brobot"
-            className="mt-4 inline-flex w-full items-center justify-center rounded-2xl border border-[#46AAFF]/25 bg-black/30 px-4 py-3 text-sm hover:border-[#46AAFF]/50"
+          <Card
+            title="Rooms"
+            desc="Click to open. No auto-join. Rooms are secondary on purpose."
           >
-            Open broBOT (Coming Soon)
-          </Link>
+            <div className="grid gap-3">
+              <GhostButton href="https://meet.jit.si/SpaceToLand-broThercollecTive" newTab>
+                Meeting Room
+              </GhostButton>
+              <GhostButton href="https://meet.jit.si/ChillRoom1" newTab>
+                Chill Room 1
+              </GhostButton>
+              <GhostButton href="https://meet.jit.si/ChillRoom2" newTab>
+                Chill Room 2
+              </GhostButton>
+              <GhostButton href="https://meet.jit.si/broTAdminOnly" newTab>
+                Admin Only
+              </GhostButton>
+            </div>
+          </Card>
+
+          <Card
+            title="Forms"
+            desc="Google forms for now. Portal-native forms come after launch."
+          >
+            <div className="grid gap-3">
+              <GhostButton href="/members/forms">Open Forms</GhostButton>
+              <div className="text-xs text-white/50">
+                We’re building forward — no rework chaos.
+              </div>
+            </div>
+          </Card>
         </div>
 
-        {/* Admin-only */}
-        {(role === "admin" || role === "superadmin") && (
-          <div className="mt-6 rounded-2xl border border-[#46AAFF]/20 bg-white/5 p-6">
-            <h3 className="font-semibold">Admin Layer</h3>
-            <p className="mt-2 text-sm text-white/70">Inbox + requests. (Members never see this.)</p>
-            <Link
-              href="/admin/inbox"
-              className="mt-4 inline-flex w-full items-center justify-center rounded-2xl border border-[#46AAFF]/40 bg-black/30 px-4 py-3 text-sm hover:border-[#46AAFF]/70"
-            >
-              Open Admin Inbox
-            </Link>
-          </div>
-        )}
+        {/* footer vibe */}
+        <div className="mt-10 text-center text-xs text-white/45">
+          This is a private layer. Quiet by design.
+        </div>
       </div>
     </div>
   );
 }
-

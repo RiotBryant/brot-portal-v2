@@ -1,182 +1,196 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 
-const CATEGORIES = ["resources", "legal", "medical", "other"] as const;
+type Category = "resources" | "legal" | "medical" | "other";
 
 export default function SupportPage() {
   const router = useRouter();
-  const [loading, setLoading] = useState(true);
 
-  const [category, setCategory] =
-    useState<(typeof CATEGORIES)[number]>("resources");
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+
+  const [category, setCategory] = useState<Category>("resources");
+  const [urgent, setUrgent] = useState("");
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
-  const [urgentNote, setUrgentNote] = useState("");
 
   const [err, setErr] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
+
+  const canSubmit = useMemo(() => {
+    return subject.trim().length >= 3 && message.trim().length >= 10;
+  }, [subject, message]);
 
   useEffect(() => {
     (async () => {
       const { data } = await supabase.auth.getSession();
-      if (!data.session) {
-        router.push("/login");
-        return;
-      }
-      setLoading(false);
+      if (!data.session) router.replace("/login");
+      else setLoading(false);
     })();
   }, [router]);
 
-  async function submit(e: React.FormEvent) {
+  async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setErr(null);
     setOk(null);
+
+    if (!canSubmit) {
+      setErr("Add a subject + a clear message (10+ chars).");
+      return;
+    }
+
     setSubmitting(true);
-
     try {
-      // 1) Make sure user is logged in
-      const { data: sess } = await supabase.auth.getSession();
-      const uid = sess.session?.user.id;
-
-      if (!uid) {
-        router.push("/login");
+      const { data: auth } = await supabase.auth.getUser();
+      const user = auth.user;
+      if (!user) {
+        router.replace("/login");
         return;
       }
 
-      // 2) Insert into ONE inbox table: public.requests
-      // These columns MUST exist:
-      // created_by, category, subject, body, urgent_note
-      const { error } = await supabase.from("requests").insert({
-        created_by: uid,
-        category,
-        subject: subject.trim(),
-        body: message.trim(),
-        urgent_note: urgentNote.trim() ? urgentNote.trim() : null,
+      // Insert request
+      const { data: req, error: reqErr } = await supabase
+        .from("requests")
+        .insert({
+          created_by: user.id,
+          category,
+          subject: subject.trim(),
+          body: message.trim(),
+          status: "open",
+          visibility: "admins",
+        })
+        .select("id")
+        .single();
+
+      if (reqErr) throw reqErr;
+
+      // Optional: create first message record (future-proof thread)
+      await supabase.from("request_messages").insert({
+        request_id: req.id,
+        author_id: user.id,
+        body: `URGENT? ${urgent.trim() || "Not specified"}\n\n${message.trim()}`,
+        is_internal: false,
       });
 
-      if (error) {
-        setErr(error.message);
-        return;
-      }
-
-      // 3) Success UI
-      setOk("Submitted. An admin will respond inside the portal.");
+      setOk("Sent. This is now in the admin inbox.");
       setSubject("");
+      setUrgent("");
       setMessage("");
-      setUrgentNote("");
-      setCategory("resources");
+
+      // If you want to bounce them back after a sec:
+      // setTimeout(() => router.push("/members"), 900);
+    } catch (e: any) {
+      setErr(e?.message ?? "Something failed. Try again.");
     } finally {
       setSubmitting(false);
     }
   }
 
   if (loading) {
-    return <div className="p-6 text-white/70">Loading…</div>;
+    return (
+      <div className="min-h-screen bg-[#07070b] text-white grid place-items-center">
+        <div className="opacity-70 text-sm">Loading…</div>
+      </div>
+    );
   }
 
   return (
     <div className="min-h-screen bg-[#07070b] text-white">
-      <div
-        className="absolute inset-0 pointer-events-none opacity-25"
-        style={{
-          background:
-            "radial-gradient(60% 60% at 50% 0%, rgba(70,170,255,0.16), transparent 60%)",
-        }}
-      />
-
-      <div className="relative mx-auto max-w-2xl px-6 py-10">
-        <button
-          onClick={() => router.push("/members")}
-          className="text-sm text-white/60 hover:text-white"
-        >
-          ← Back to Portal
-        </button>
-
-        <h1 className="mt-6 text-2xl font-semibold">Request Support</h1>
-
-        <p className="mt-2 text-sm text-white/70">
-          Private. Direct to the admin inbox. Choose a category, write your
-          subject and message.
-        </p>
-
-        <form
-          onSubmit={submit}
-          className="mt-8 space-y-4 rounded-2xl border border-white/10 bg-white/5 p-6"
-        >
-          <label className="block text-sm text-white/80">
-            Category
-            <select
-              className="mt-2 w-full rounded-xl border border-white/10 bg-black/40 p-3 text-white"
-              value={category}
-              onChange={(e) => setCategory(e.target.value as any)}
-            >
-              {CATEGORIES.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="block text-sm text-white/80">
-            Subject
-            <input
-              className="mt-2 w-full rounded-xl border border-white/10 bg-black/40 p-3 text-white"
-              value={subject}
-              onChange={(e) => setSubject(e.target.value)}
-              required
-              maxLength={120}
-              placeholder="Short summary"
-            />
-          </label>
-
-          <label className="block text-sm text-white/80">
-            Message
-            <textarea
-              className="mt-2 w-full rounded-xl border border-white/10 bg-black/40 p-3 text-white"
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              required
-              rows={6}
-              placeholder="Tell us what’s going on."
-            />
-          </label>
-
-          <label className="block text-sm text-white/80">
-            Is this urgent? If yes, explain why + timeline (optional)
-            <textarea
-              className="mt-2 w-full rounded-xl border border-white/10 bg-black/40 p-3 text-white"
-              value={urgentNote}
-              onChange={(e) => setUrgentNote(e.target.value)}
-              rows={3}
-              placeholder="Example: Court date next week / meds issue today / housing by Friday."
-            />
-          </label>
-
-          {err && (
-            <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">
-              {err}
-            </div>
-          )}
-
-          {ok && (
-            <div className="rounded-2xl border border-green-500/25 bg-green-500/10 p-3 text-sm text-green-200">
-              {ok}
-            </div>
-          )}
-
-          <button
-            type="submit"
-            disabled={submitting}
-            className="w-full rounded-2xl border border-[#46AAFF]/40 bg-black/30 px-5 py-3 text-sm font-medium hover:border-[#46AAFF]/70 hover:shadow-[0_0_30px_rgba(70,170,255,0.25)] disabled:opacity-60"
+      <div className="mx-auto max-w-2xl px-5 py-10">
+        <div className="mb-6">
+          <Link
+            href="/members"
+            className="text-sm text-white/70 hover:text-white"
           >
-            {submitting ? "Submitting…" : "Submit Request"}
-          </button>
-        </form>
+            ← Back to portal
+          </Link>
+        </div>
+
+        <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-6 shadow-[0_0_40px_rgba(80,170,255,0.08)]">
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Request Support
+          </h1>
+          <p className="mt-2 text-sm text-white/70">
+            This goes to the admin inbox. Quiet by design.
+          </p>
+
+          <form onSubmit={onSubmit} className="mt-6 grid gap-4">
+            <div className="grid gap-2">
+              <label className="text-sm text-white/80">Category</label>
+              <select
+                value={category}
+                onChange={(e) => setCategory(e.target.value as Category)}
+                className="h-11 rounded-xl border border-white/10 bg-black/40 px-3 text-white outline-none focus:border-white/25"
+              >
+                <option value="resources">resources</option>
+                <option value="legal">legal</option>
+                <option value="medical">medical</option>
+                <option value="other">other</option>
+              </select>
+            </div>
+
+            <div className="grid gap-2">
+              <label className="text-sm text-white/80">
+                Is this urgent? (tell us)
+              </label>
+              <input
+                value={urgent}
+                onChange={(e) => setUrgent(e.target.value)}
+                placeholder="Example: yes — need a call tonight / no — whenever"
+                className="h-11 rounded-xl border border-white/10 bg-black/40 px-3 text-white placeholder:text-white/35 outline-none focus:border-white/25"
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <label className="text-sm text-white/80">Subject</label>
+              <input
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+                placeholder="Short + clear"
+                className="h-11 rounded-xl border border-white/10 bg-black/40 px-3 text-white placeholder:text-white/35 outline-none focus:border-white/25"
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <label className="text-sm text-white/80">Message</label>
+              <textarea
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                placeholder="Write what’s going on. No performance required."
+                rows={6}
+                className="rounded-xl border border-white/10 bg-black/40 p-3 text-white placeholder:text-white/35 outline-none focus:border-white/25"
+              />
+            </div>
+
+            {err ? (
+              <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">
+                {err}
+              </div>
+            ) : null}
+
+            {ok ? (
+              <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-200">
+                {ok}
+              </div>
+            ) : null}
+
+            <button
+              type="submit"
+              disabled={submitting || !canSubmit}
+              className="mt-2 h-11 rounded-xl bg-white text-black font-medium tracking-tight disabled:opacity-40"
+            >
+              {submitting ? "Sending…" : "Send to Admin Inbox"}
+            </button>
+
+            <p className="text-xs text-white/45">
+              If you’re in immediate danger, call local emergency services.
+            </p>
+          </form>
+        </div>
       </div>
     </div>
   );

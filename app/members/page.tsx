@@ -1,213 +1,248 @@
 "use client";
 
-import Image from "next/image";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 
-type RoleName = "member" | "admin" | "superadmin";
-
 export default function MembersPage() {
-  const [role, setRole] = useState<RoleName>("member");
+  const router = useRouter();
+  const [role, setRole] = useState<string>("member");
+  const [loading, setLoading] = useState(true);
+
+  const isAdmin = useMemo(() => role === "admin" || role === "superadmin", [role]);
 
   useEffect(() => {
     (async () => {
-      // If you already have role logic elsewhere, this won't break anything.
-      // Worst case: it just stays "member" and the page still works.
-      try {
-        const { data } = await supabase.auth.getUser();
-        const userId = data.user?.id;
-
-        if (!userId) return;
-
-        // Try to read role from your existing table if present.
-        // If this fails, we just default to member.
-        const { data: roleRow } = await supabase
-          .from("user_roles")
-          .select("role")
-          .eq("user_id", userId)
-          .maybeSingle();
-
-        const r = (roleRow?.role as RoleName) || "member";
-        setRole(r);
-      } catch {
-        // ignore
+      const { data } = await supabase.auth.getSession();
+      if (!data.session) {
+        router.replace("/login");
+        return;
       }
-    })();
-  }, []);
 
-  async function handleLogout() {
+      const { data: u } = await supabase.auth.getUser();
+      const uid = u.user?.id;
+      if (!uid) {
+        router.replace("/login");
+        return;
+      }
+
+      const { data: r } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", uid)
+        .maybeSingle();
+
+      setRole(r?.role ?? "member");
+      setLoading(false);
+    })();
+  }, [router]);
+
+  async function logout() {
     await supabase.auth.signOut();
-    window.location.href = "/login";
+    router.replace("/login");
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#07070b] text-white grid place-items-center">
+        <div className="opacity-70 text-sm">Loading…</div>
+      </div>
+    );
   }
 
   return (
     <div className="min-h-screen bg-[#07070b] text-white">
-      {/* Ambient background */}
-      <div
-        className="pointer-events-none absolute inset-0 opacity-45"
-        style={{
-          background:
-            "radial-gradient(55% 55% at 50% 0%, rgba(70,170,255,0.18), transparent 65%), radial-gradient(35% 35% at 20% 30%, rgba(236,72,153,0.08), transparent 60%), radial-gradient(35% 35% at 85% 55%, rgba(99,102,241,0.08), transparent 60%)",
-        }}
-      />
+      {/* Local CSS for the pulse (no tailwind config needed) */}
+      <style>{`
+        @keyframes broTPulse {
+          0%, 100% { transform: scale(1); filter: drop-shadow(0 0 0 rgba(90,170,255,0)); opacity: 1; }
+          50% { transform: scale(1.035); filter: drop-shadow(0 0 18px rgba(90,170,255,0.35)); opacity: 0.98; }
+        }
+        .broT-pulse { animation: broTPulse 2.8s ease-in-out infinite; }
+        .glass {
+          background: rgba(255,255,255,0.04);
+          border: 1px solid rgba(255,255,255,0.10);
+          box-shadow: 0 0 60px rgba(80,170,255,0.06);
+        }
+        .btn {
+          background: rgba(255,255,255,0.06);
+          border: 1px solid rgba(255,255,255,0.12);
+          transition: transform .12s ease, border-color .12s ease, background .12s ease;
+        }
+        .btn:hover { transform: translateY(-1px); border-color: rgba(255,255,255,0.22); background: rgba(255,255,255,0.08); }
+        .btnPrimary {
+          background: #ffffff;
+          color: #000000;
+          border: none;
+        }
+      `}</style>
 
-      <div className="relative mx-auto max-w-5xl px-6 py-10">
+      <div className="mx-auto max-w-5xl px-5 py-10">
         {/* Top bar */}
-        <div className="flex items-start justify-between gap-6">
+        <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-4">
-            {/* Pulsing portal logo */}
-            <div className="relative">
-              <div className="absolute -inset-6 rounded-3xl blur-2xl animate-pulse bg-[#46AAFF]/15" />
-              <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-black/45 p-2">
-                {/* expects /public/broTportal.png */}
-                <Image
-                  src="/broTportal.png"
-                  alt="broT Members Portal"
-                  width={78}
-                  height={78}
-                  priority
-                  className="brot-pulse"
-                />
-              </div>
+            <div className="broT-pulse">
+              {/* Put broTportal.png inside /public */}
+              <img
+                src="/broTportal.png"
+                alt="broT Members Portal"
+                className="h-16 w-16 rounded-2xl"
+              />
             </div>
 
             <div>
-              <div className="text-3xl font-semibold tracking-tight">
+              <h1 className="text-2xl font-semibold tracking-tight">
                 broT Members Portal
-              </div>
-              <div className="mt-2 text-sm text-white/70">
+              </h1>
+              <p className="mt-1 text-sm text-white/70">
                 Built on presence, not noise. Brotherhood without performance.
-              </div>
-              <div className="mt-2 text-xs text-white/55">
+              </p>
+              <p className="mt-1 text-sm text-white/60">
                 Nothing auto-joins. Nothing is recorded. You’re safe.
-              </div>
+              </p>
             </div>
           </div>
 
-          <div className="flex flex-col items-end gap-2">
-            <div className="text-xs text-white/50">Role: {role}</div>
+          <div className="text-right">
+            <div className="text-xs text-white/60">Role: <span className="text-white">{role}</span></div>
             <button
-              onClick={handleLogout}
-              className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-2 text-sm text-white/85 hover:border-white/25 hover:text-white"
+              onClick={logout}
+              className="mt-2 h-9 rounded-xl px-3 text-sm btn"
             >
               Log out
             </button>
           </div>
         </div>
 
-        {/* Grid */}
-        <div className="mt-10 grid gap-5 md:grid-cols-2">
-          <Card
-            title="Request Support"
-            desc="Resources, legal, medical, or something personal. This goes to the admin inbox."
-            ctaText="Open Support Form"
-            href="/members/support"
-            icon="/brobot.png"
-          />
+        {/* Main grid */}
+        <div className="mt-8 grid gap-4 md:grid-cols-2">
+          {/* Support */}
+          <div className="glass rounded-2xl p-6">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-lg font-semibold">Request Support</h2>
+              {isAdmin ? (
+                <Link href="/admin/inbox" className="text-xs text-white/70 hover:text-white">
+                  Admin Inbox →
+                </Link>
+              ) : null}
+            </div>
+            <p className="mt-2 text-sm text-white/70">
+              Resources, legal, medical, or something personal. This goes to the admin inbox.
+            </p>
 
-          <Card
-            title="Community"
-            desc="GroupMe for now. Portal chat later."
-            ctaText="Open GroupMe"
-            href="https://groupme.com/join_group/113145463/Wxy8CAFk"
-            external
-            icon="/brot-lounge.png"
-          />
-
-          <Card
-            title="Rooms"
-            desc="Nothing auto-joins. Clicking a room opens it."
-            ctaText="Enter Rooms"
-            href="/members/rooms"
-            icon="/chill-room-1.png"
-          />
-
-          <Card
-            title="Forms"
-            desc="Temporary Google forms. Native portal forms coming soon."
-            ctaText="Open Forms"
-            href="/members/forms"
-            icon="/logo.png"
-          />
-        </div>
-
-        {/* Admin panel shortcut (only shows for admins/superadmin) */}
-        {(role === "admin" || role === "superadmin") && (
-          <div className="mt-8 rounded-3xl border border-white/10 bg-white/[0.04] p-6 backdrop-blur">
-            <div className="flex items-center justify-between gap-6">
-              <div>
-                <div className="text-lg font-semibold tracking-tight">
-                  Admin Console
-                </div>
-                <div className="mt-1 text-sm text-white/65">
-                  View support requests in one place.
-                </div>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Link href="/members/support" className="h-11 rounded-xl px-4 grid place-items-center text-sm btn btnPrimary">
+                Open Support Form
+              </Link>
+              <div className="h-11 rounded-xl px-4 grid place-items-center text-sm text-white/60 border border-white/10 bg-black/30">
+                Categories: resources • legal • medical • other
               </div>
-              <Link
-                href="/admin/inbox"
-                className="inline-flex items-center justify-center rounded-2xl border border-white/10 bg-black/40 px-5 py-3 text-sm font-medium text-white hover:border-[#46AAFF]/45 hover:shadow-[0_0_28px_rgba(70,170,255,0.18)]"
+            </div>
+          </div>
+
+          {/* Community */}
+          <div className="glass rounded-2xl p-6">
+            <h2 className="text-lg font-semibold">Community</h2>
+            <p className="mt-2 text-sm text-white/70">
+              GroupMe for now. Portal chat later — inside the portal, not a widget mess.
+            </p>
+
+            <div className="mt-4 flex flex-wrap gap-2">
+              <a
+                href="https://groupme.com/join_group/113145463/Wxy8CAFk"
+                target="_blank"
+                rel="noreferrer"
+                className="h-11 rounded-xl px-4 grid place-items-center text-sm btn"
               >
-                Open Inbox
+                Open GroupMe
+              </a>
+
+              <div className="h-11 rounded-xl px-4 grid place-items-center text-sm text-white/60 border border-white/10 bg-black/30">
+                Chat: coming soon
+              </div>
+            </div>
+          </div>
+
+          {/* Rooms (secondary) */}
+          <div className="glass rounded-2xl p-6 md:col-span-2">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-lg font-semibold">Rooms</h2>
+              <p className="text-xs text-white/55">Secondary on purpose.</p>
+            </div>
+            <p className="mt-2 text-sm text-white/70">
+              Click to open. No auto-join.
+            </p>
+
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <a href="https://meet.jit.si/SpaceToLand-broThercollecTive" target="_blank" rel="noreferrer" className="rounded-2xl border border-white/10 bg-black/30 p-4 hover:border-white/20 transition">
+                <div className="text-sm font-medium">Meeting Room</div>
+                <div className="mt-2 text-xs text-white/60">Opens in new tab</div>
+              </a>
+
+              <a href="https://meet.jit.si/ChillRoom1" target="_blank" rel="noreferrer" className="rounded-2xl border border-white/10 bg-black/30 p-4 hover:border-white/20 transition">
+                <img src="/chill-room-1.png" className="h-10 w-auto mb-2 opacity-95" alt="Chill Room 1" />
+                <div className="text-sm font-medium">Chill Room 1</div>
+              </a>
+
+              <a href="https://meet.jit.si/ChillRoom2" target="_blank" rel="noreferrer" className="rounded-2xl border border-white/10 bg-black/30 p-4 hover:border-white/20 transition">
+                <img src="/chill-room-2.png" className="h-10 w-auto mb-2 opacity-95" alt="Chill Room 2" />
+                <div className="text-sm font-medium">Chill Room 2</div>
+              </a>
+
+              <a href="https://meet.jit.si/broTAdminOnly" target="_blank" rel="noreferrer" className="rounded-2xl border border-white/10 bg-black/30 p-4 hover:border-white/20 transition">
+                <div className="text-sm font-medium">Admin Only</div>
+                <div className="mt-2 text-xs text-white/60">Locked by trust</div>
+              </a>
+            </div>
+          </div>
+
+          {/* Forms */}
+          <div className="glass rounded-2xl p-6">
+            <h2 className="text-lg font-semibold">Forms</h2>
+            <p className="mt-2 text-sm text-white/70">
+              Google Forms for now. Native portal forms after launch.
+            </p>
+            <div className="mt-4">
+              <Link href="/members/forms" className="h-11 rounded-xl px-4 inline-grid place-items-center text-sm btn">
+                Open Forms
               </Link>
             </div>
           </div>
-        )}
 
-        <div className="mt-10 text-center text-xs text-white/45">
+          {/* broBOT */}
+          <div className="glass rounded-2xl p-6">
+            <div className="flex items-center gap-3">
+              <img
+                src="/brobot.png"
+                alt="broBOT"
+                className="h-12 w-12 rounded-2xl border border-white/10 bg-black/30"
+              />
+              <div>
+                <h2 className="text-lg font-semibold">broBOT</h2>
+                <p className="text-sm text-white/70">
+                  Space-mode companion for grounding, guidance, and routing.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-4 rounded-xl border border-white/10 bg-black/30 p-4 text-sm text-white/70">
+              Coming soon: broBOT inside the portal (not a widget mess).
+            </div>
+
+            {/* If you later build the route, this becomes a Link */}
+            <div className="mt-4">
+              <span className="h-11 rounded-xl px-4 inline-grid place-items-center text-sm text-white/50 border border-white/10 bg-black/20">
+                Open broBOT (soon)
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-8 text-xs text-white/45">
           Quiet by design. Presence over performance.
         </div>
       </div>
     </div>
   );
-}
-
-function Card(props: {
-  title: string;
-  desc: string;
-  ctaText: string;
-  href: string;
-  icon: string;
-  external?: boolean;
-}) {
-  const Inner = (
-    <div className="group relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.04] p-6 backdrop-blur transition hover:border-white/20">
-      <div className="pointer-events-none absolute -right-24 -top-24 h-56 w-56 rounded-full bg-[#46AAFF]/10 blur-3xl transition group-hover:bg-[#46AAFF]/14" />
-
-      <div className="flex items-start justify-between gap-5">
-        <div>
-          <div className="text-lg font-semibold tracking-tight">
-            {props.title}
-          </div>
-          <div className="mt-2 text-sm text-white/65">{props.desc}</div>
-
-          <div className="mt-5 inline-flex items-center justify-center rounded-2xl border border-white/12 bg-black/35 px-5 py-3 text-sm font-medium text-white/85 transition group-hover:border-white/25 group-hover:text-white">
-            {props.ctaText}
-          </div>
-        </div>
-
-        <div className="relative shrink-0">
-          <div className="absolute -inset-6 rounded-3xl blur-2xl bg-[#46AAFF]/10 opacity-70" />
-          <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-black/40 p-2">
-            <Image
-              src={props.icon}
-              alt=""
-              width={74}
-              height={74}
-              className="opacity-95"
-            />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  if (props.external) {
-    return (
-      <a href={props.href} target="_blank" rel="noreferrer">
-        {Inner}
-      </a>
-    );
-  }
-  return <Link href={props.href}>{Inner}</Link>;
 }

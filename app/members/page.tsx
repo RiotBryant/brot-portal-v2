@@ -5,12 +5,29 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 
+type Profile = {
+  id: string;
+  username: string | null;
+  avatar_url: string | null;
+};
+
+function initials(name?: string | null) {
+  const s = (name ?? "").trim();
+  if (!s) return "U";
+  const parts = s.split(/\s+/).slice(0, 2);
+  return parts.map((p) => p[0]?.toUpperCase()).join("") || "U";
+}
+
 export default function MembersPage() {
   const router = useRouter();
   const [role, setRole] = useState<string>("member");
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const isAdmin = useMemo(() => role === "admin" || role === "superadmin", [role]);
+  const isAdmin = useMemo(
+    () => role === "admin" || role === "superadmin",
+    [role]
+  );
 
   useEffect(() => {
     (async () => {
@@ -34,6 +51,15 @@ export default function MembersPage() {
         .maybeSingle();
 
       setRole(r?.role ?? "member");
+
+      // profile fetch (safe if columns exist)
+      const { data: p } = await supabase
+        .from("profiles")
+        .select("id, username, avatar_url")
+        .eq("id", uid)
+        .maybeSingle();
+
+      setProfile((p as any) ?? { id: uid, username: null, avatar_url: null });
       setLoading(false);
     })();
   }, [router]);
@@ -45,339 +71,334 @@ export default function MembersPage() {
 
   if (loading) {
     return (
-      <div style={{ minHeight: "100vh", display: "grid", placeItems: "center", background: "#07070b", color: "white" }}>
-        <div style={{ opacity: 0.7, fontSize: 14 }}>Loading…</div>
+      <div className="min-h-screen bg-[#07070b] text-white grid place-items-center">
+        <div className="opacity-70 text-sm">Loading…</div>
       </div>
     );
   }
 
+  const displayName = profile?.username?.trim() || "Member";
+
   return (
-    <div style={{ minHeight: "100vh", background: "#07070b", color: "white" }}>
+    <div className="min-h-screen text-white portalBg">
       <style>{`
-        :root { color-scheme: dark; }
-        * { box-sizing: border-box; }
-        a { text-decoration: none; color: inherit; }
-
-        .bgGlow {
-          position: fixed;
-          inset: -260px;
+        .portalBg{
           background:
-            radial-gradient(55% 55% at 30% 35%, rgba(92,177,255,0.18), transparent 60%),
-            radial-gradient(55% 55% at 70% 35%, rgba(255,90,200,0.14), transparent 60%),
-            radial-gradient(65% 65% at 50% 70%, rgba(120,255,240,0.10), transparent 60%);
-          filter: blur(28px);
-          opacity: 0.95;
-          pointer-events: none;
-          z-index: 0;
+            radial-gradient(1100px 600px at 18% 78%, rgba(0,210,255,0.16), transparent 60%),
+            radial-gradient(900px 600px at 82% 38%, rgba(255,60,210,0.14), transparent 62%),
+            radial-gradient(800px 520px at 60% 92%, rgba(140,120,255,0.10), transparent 60%),
+            #07070b;
         }
-
-        .wrap { position: relative; z-index: 1; max-width: 1100px; margin: 0 auto; padding: 18px 18px 96px; }
-
-        .topbar {
-          position: sticky;
-          top: 0;
-          z-index: 50;
-          background: rgba(7,7,11,0.78);
+        .glass{
+          background: rgba(255,255,255,0.04);
+          border: 1px solid rgba(255,255,255,0.10);
+          box-shadow: 0 0 60px rgba(80,170,255,0.06);
           backdrop-filter: blur(10px);
-          border-bottom: 1px solid rgba(255,255,255,0.10);
         }
-
-        .topbarInner {
-          max-width: 1100px;
-          margin: 0 auto;
-          padding: 14px 18px;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 12px;
+        .chip{
+          background: rgba(255,255,255,0.06);
+          border: 1px solid rgba(255,255,255,0.10);
         }
-
-        .title {
-          font-weight: 650;
-          letter-spacing: -0.02em;
-          font-size: 16px;
-          line-height: 1.2;
-          margin: 0;
-        }
-        .sub {
-          margin: 4px 0 0;
-          font-size: 12px;
-          color: rgba(255,255,255,0.55);
-        }
-
-        .pillRow { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
-        .pill {
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          padding: 8px 12px;
-          border-radius: 999px;
+        .btn{
           background: rgba(255,255,255,0.06);
           border: 1px solid rgba(255,255,255,0.12);
-          color: rgba(255,255,255,0.78);
-          font-size: 12px;
-        }
-
-        .hero {
-          margin-top: 18px;
-          border-radius: 26px;
-          padding: 18px;
-          background: rgba(255,255,255,0.045);
-          border: 1px solid rgba(255,255,255,0.10);
-          box-shadow: 0 0 90px rgba(80,170,255,0.06);
-          backdrop-filter: blur(10px);
-        }
-        .heroH1 {
-          margin: 12px 0 0;
-          font-size: 30px;
-          letter-spacing: -0.03em;
-          line-height: 1.1;
-          font-weight: 700;
-        }
-        .heroP {
-          margin: 10px 0 0;
-          font-size: 14px;
-          line-height: 1.5;
-          color: rgba(255,255,255,0.72);
-          max-width: 760px;
-        }
-
-        .btnRow { margin-top: 16px; display: flex; flex-wrap: wrap; gap: 10px; }
-
-        /* REAL BUTTONS (works even if Tailwind is broken) */
-        .btn {
-          height: 44px;
-          padding: 0 18px;
-          border-radius: 999px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          gap: 10px;
-          font-size: 14px;
-          font-weight: 600;
-          background: rgba(255,255,255,0.06);
-          border: 1px solid rgba(255,255,255,0.14);
-          color: rgba(255,255,255,0.92);
-          transition: transform .12s ease, border-color .12s ease, background .12s ease;
+          transition: transform .12s ease, border-color .12s ease, background .12s ease, box-shadow .12s ease;
           user-select: none;
-          white-space: nowrap;
         }
-        .btn:hover { transform: translateY(-1px); border-color: rgba(255,255,255,0.22); background: rgba(255,255,255,0.09); }
-        .btnPrimary {
-          background: rgba(255,255,255,0.92);
-          color: #0b0b12;
-          border: 1px solid rgba(255,255,255,0.60);
+        .btn:hover{
+          transform: translateY(-1px);
+          border-color: rgba(255,255,255,0.22);
+          background: rgba(255,255,255,0.08);
+          box-shadow: 0 0 0 4px rgba(120,190,255,0.06);
         }
-        .btnDanger { background: rgba(255,255,255,0.06); }
-        .btnSmall { height: 38px; padding: 0 14px; font-size: 13px; font-weight: 600; }
-
-        .grid {
-          margin-top: 16px;
-          display: grid;
-          grid-template-columns: 1fr;
-          gap: 12px;
+        .btnPrimary{
+          background: #ffffff;
+          color: #000000;
+          border: none;
+          box-shadow: 0 10px 40px rgba(0,0,0,0.35);
         }
-        @media (min-width: 860px) {
-          .hero { padding: 22px; }
-          .grid { grid-template-columns: 1fr 1fr; gap: 14px; }
-          .heroTop { display: flex; align-items: flex-end; justify-content: space-between; gap: 14px; }
+        .btnPrimary:hover{
+          box-shadow: 0 0 0 4px rgba(120,190,255,0.12), 0 10px 45px rgba(0,0,0,0.38);
         }
-
-        .card {
-          border-radius: 20px;
-          padding: 16px;
-          background: rgba(0,0,0,0.35);
-          border: 1px solid rgba(255,255,255,0.10);
-          transition: transform .14s ease, border-color .14s ease, background .14s ease;
-        }
-        .card:hover { transform: translateY(-2px); border-color: rgba(255,255,255,0.20); background: rgba(0,0,0,0.45); }
-
-        .cardTitle { font-size: 16px; font-weight: 700; margin: 0; }
-        .cardP { margin: 8px 0 0; font-size: 13px; color: rgba(255,255,255,0.70); line-height: 1.45; }
-        .cardMeta { margin-top: 8px; font-size: 12px; color: rgba(255,255,255,0.55); }
-        .cardBtns { margin-top: 14px; display: flex; flex-wrap: wrap; gap: 10px; }
-
-        /* Mobile bottom dock */
-        .dock {
+        .dock{
           position: fixed;
-          left: 0; right: 0; bottom: 0;
-          z-index: 60;
-          background: rgba(7,7,11,0.86);
-          backdrop-filter: blur(10px);
-          border-top: 1px solid rgba(255,255,255,0.10);
-          padding: 10px 10px 12px;
+          left: 50%;
+          transform: translateX(-50%);
+          bottom: 16px;
+          width: min(680px, calc(100% - 22px));
+          z-index: 50;
+          padding: 10px;
+          border-radius: 22px;
+          background: rgba(10,10,14,0.55);
+          border: 1px solid rgba(255,255,255,0.10);
+          backdrop-filter: blur(14px);
         }
-        .dockInner {
-          max-width: 1100px;
-          margin: 0 auto;
+        .dockGrid{
           display: grid;
-          grid-template-columns: repeat(4, 1fr);
+          grid-template-columns: repeat(6, minmax(0, 1fr));
           gap: 8px;
+          align-items: center;
         }
-        .dockBtn {
-          height: 46px;
+        @media (max-width: 520px){
+          .dockGrid{ grid-template-columns: repeat(5, minmax(0, 1fr)); }
+          .dockHideOnMobile{ display: none; }
+        }
+        .dockBtn{
+          height: 42px;
           border-radius: 16px;
-          display: inline-flex;
+          display: grid;
+          place-items: center;
+          font-size: 12px;
+          letter-spacing: .2px;
+        }
+        .avatarChip{
+          height: 42px;
+          border-radius: 16px;
+          display: flex;
           align-items: center;
           justify-content: center;
+          gap: 8px;
+          padding: 0 10px;
           font-size: 12px;
-          font-weight: 700;
-          background: rgba(255,255,255,0.06);
-          border: 1px solid rgba(255,255,255,0.14);
-          color: rgba(255,255,255,0.92);
         }
-        .dockBtnPrimary {
-          background: rgba(255,255,255,0.92);
-          color: #0b0b12;
-          border: 1px solid rgba(255,255,255,0.60);
+        .avatar{
+          height: 26px;
+          width: 26px;
+          border-radius: 12px;
+          border: 1px solid rgba(255,255,255,0.12);
+          background: rgba(0,0,0,0.35);
+          display: grid;
+          place-items: center;
+          overflow: hidden;
+          flex: 0 0 auto;
         }
-
-        /* Make sure links never look like underlined 1999 links */
-        .linkReset { text-decoration: none !important; color: inherit !important; }
+        .fadeInUp{
+          animation: fadeInUp 220ms ease-out both;
+        }
+        @keyframes fadeInUp{
+          from { opacity: 0; transform: translateY(6px); }
+          to { opacity: 1; transform: translateY(0px); }
+        }
       `}</style>
 
-      <div className="bgGlow" />
-
-      <div className="topbar">
-        <div className="topbarInner">
-          <div style={{ minWidth: 0 }}>
-            <div className="title">broT Members Portal</div>
-            <div className="sub">Quiet by design • presence over performance</div>
+      <div className="mx-auto max-w-6xl px-5 py-10 pb-28">
+        {/* Top bar */}
+        <div className="flex items-center justify-between gap-4 fadeInUp">
+          <div>
+            <div className="text-sm font-semibold">broT Members Portal</div>
+            <div className="text-xs text-white/60">
+              Quiet by design • presence over performance
+            </div>
           </div>
 
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <div className="flex items-center gap-2">
             {isAdmin ? (
-              <Link href="/admin/inbox" className="linkReset">
-                <span className="btn btnSmall">Admin Inbox</span>
+              <Link
+                href="/admin/inbox"
+                className="h-10 rounded-2xl px-4 grid place-items-center text-sm btn"
+              >
+                Admin Inbox
               </Link>
             ) : null}
 
-            <button onClick={logout} className="btn btnSmall btnDanger" type="button">
+            <button
+              onClick={logout}
+              className="h-10 rounded-2xl px-4 text-sm btn"
+            >
               Log out
             </button>
           </div>
         </div>
-      </div>
 
-      <div className="wrap">
-        <div className="hero">
-          <div className="heroTop">
+        {/* Hero */}
+        <div className="mt-6 glass rounded-[28px] p-7 md:p-10 fadeInUp">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="chip rounded-full px-3 py-1 text-xs text-white/80">
+              Role: <span className="text-white">{role}</span>
+            </span>
+            <span className="chip rounded-full px-3 py-1 text-xs text-white/70">
+              Nothing auto-joins
+            </span>
+            <span className="chip rounded-full px-3 py-1 text-xs text-white/70">
+              Nothing is recorded
+            </span>
+          </div>
+
+          <div className="mt-5 flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
             <div>
-              <div className="pillRow">
-                <span className="pill">Role: <span style={{ color: "white" }}>{role}</span></span>
-                <span className="pill">Nothing auto-joins</span>
-                <span className="pill">Nothing is recorded</span>
-              </div>
-
-              <h1 className="heroH1">Built for calm access.</h1>
-              <p className="heroP">
-                Everything here is deliberate: support routes to admins, lounge opens rooms, forms stay simple,
-                and broBOT will live inside the portal later (not a widget mess).
-              </p>
+              <h1 className="text-3xl md:text-4xl font-semibold tracking-tight">
+                Built for Brotherhood.
+              </h1>
             </div>
 
-            <div className="btnRow">
-              <Link href="/members/support" className="linkReset">
-                <span className="btn btnPrimary">Request Support</span>
+            <div className="flex flex-wrap gap-2">
+              <Link
+                href="/members/support"
+                className="h-11 rounded-2xl px-5 grid place-items-center text-sm btn btnPrimary"
+              >
+                Request Support
               </Link>
-              <Link href="/members/rooms" className="linkReset">
-                <span className="btn">Enter Lounge</span>
+              <Link
+                href="/members/rooms"
+                className="h-11 rounded-2xl px-5 grid place-items-center text-sm btn"
+              >
+                Enter Lounge
               </Link>
-              <Link href="/members/forms" className="linkReset">
-                <span className="btn">Forms</span>
+              <Link
+                href="/members/forms"
+                className="h-11 rounded-2xl px-5 grid place-items-center text-sm btn"
+              >
+                Forms
               </Link>
             </div>
           </div>
         </div>
 
-        <div style={{ marginTop: 14, fontWeight: 700, fontSize: 14 }}>Quick Actions</div>
+        {/* Widgets */}
+        <div className="mt-7 grid gap-4 md:grid-cols-2 fadeInUp">
+          {/* Support widget */}
+          <div className="glass rounded-[24px] p-6">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-lg font-semibold">Support</h2>
+              {isAdmin ? (
+                <Link
+                  href="/admin/inbox"
+                  className="h-9 rounded-2xl px-3 grid place-items-center text-sm btn"
+                >
+                  View Inbox
+                </Link>
+              ) : null}
+            </div>
 
-        <div className="grid">
-          <div className="card">
-            <h2 className="cardTitle">Support</h2>
-            <p className="cardP">Private request → goes to admin inbox.</p>
-            <div className="cardMeta">resources • legal • medical • other</div>
-            <div className="cardBtns">
-              <Link href="/members/support" className="linkReset">
-                <span className="btn btnPrimary">Open Support Form</span>
+            <div className="mt-2 text-sm text-white/70">
+              Private request → goes to admin inbox.
+            </div>
+            <div className="mt-2 text-xs text-white/60">
+              resources • legal • medical • other
+            </div>
+
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Link
+                href="/members/support"
+                className="h-11 rounded-2xl px-5 grid place-items-center text-sm btn btnPrimary"
+              >
+                Open Support Form
               </Link>
               {isAdmin ? (
-                <Link href="/admin/inbox" className="linkReset">
-                  <span className="btn">View Inbox</span>
+                <Link
+                  href="/admin/inbox"
+                  className="h-11 rounded-2xl px-5 grid place-items-center text-sm btn"
+                >
+                  Admin Inbox
                 </Link>
               ) : null}
             </div>
           </div>
 
-          <div className="card">
-            <h2 className="cardTitle">Community</h2>
-            <p className="cardP">GroupMe for now. Portal chat later.</p>
-            <div className="cardMeta">temporary channel</div>
-            <div className="cardBtns">
+          {/* Community widget */}
+          <div className="glass rounded-[24px] p-6">
+            <h2 className="text-lg font-semibold">Community</h2>
+            <div className="mt-2 text-sm text-white/70">
+              GroupMe for now. Portal chat later.
+            </div>
+            <div className="mt-2 text-xs text-white/60">temporary channel</div>
+
+            <div className="mt-4 flex flex-wrap gap-2">
               <a
                 href="https://groupme.com/join_group/113145463/Wxy8CAFk"
                 target="_blank"
                 rel="noreferrer"
-                className="linkReset"
+                className="h-11 rounded-2xl px-5 grid place-items-center text-sm btn btnPrimary"
               >
-                <span className="btn btnPrimary">Open GroupMe</span>
+                Open GroupMe
               </a>
-              <span className="btn" style={{ opacity: 0.72, cursor: "default" }}>Chat: coming soon</span>
+              <div className="h-11 rounded-2xl px-5 grid place-items-center text-sm text-white/60 border border-white/10 bg-black/30">
+                Chat: coming soon
+              </div>
             </div>
           </div>
 
-          <div className="card">
-            <h2 className="cardTitle">broT Lounge</h2>
-            <p className="cardP">Rooms are secondary on purpose. Click opens. No auto-join.</p>
-            <div className="cardMeta">safe entry</div>
-            <div className="cardBtns">
-              <Link href="/members/rooms" className="linkReset">
-                <span className="btn btnPrimary">Enter Lounge</span>
-              </Link>
-              <a
-                href="https://meet.jit.si/SpaceToLand-broThercollecTive"
-                target="_blank"
-                rel="noreferrer"
-                className="linkReset"
+          {/* Lounge widget */}
+          <div className="glass rounded-[24px] p-6">
+            <h2 className="text-lg font-semibold">broT Lounge</h2>
+            <div className="mt-2 text-sm text-white/70">
+              Rooms are secondary on purpose. Click opens. No auto-join.
+            </div>
+            <div className="mt-2 text-xs text-white/60">safe entry</div>
+
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Link
+                href="/members/rooms"
+                className="h-11 rounded-2xl px-5 grid place-items-center text-sm btn btnPrimary"
               >
-                <span className="btn">Weekly Meeting</span>
-              </a>
+                Enter Lounge
+              </Link>
+              <Link
+                href="/members/rooms/weekly-meeting"
+                className="h-11 rounded-2xl px-5 grid place-items-center text-sm btn"
+              >
+                Weekly Meeting
+              </Link>
             </div>
           </div>
 
-          <div className="card">
-            <h2 className="cardTitle">broBOT</h2>
-            <p className="cardP">Grounding • guidance • routing. Portal-native later.</p>
-            <div className="cardMeta">coming soon</div>
-            <div className="cardBtns">
-              <Link href="/members/brobot" className="linkReset">
-                <span className="btn">Open broBOT</span>
+          {/* broBOT widget */}
+          <div className="glass rounded-[24px] p-6">
+            <h2 className="text-lg font-semibold">broBOT</h2>
+            <div className="mt-2 text-sm text-white/70">
+              Grounding • guidance • routing
+            </div>
+            <div className="mt-2 text-xs text-white/60">coming soon</div>
+
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Link
+                href="/members/brobot"
+                className="h-11 rounded-2xl px-5 grid place-items-center text-sm btn btnPrimary"
+              >
+                Ping broBOT
               </Link>
-              <span className="btn" style={{ opacity: 0.72, cursor: "default" }}>Not a widget mess</span>
             </div>
           </div>
         </div>
       </div>
 
+      {/* Bottom Dock */}
       <div className="dock">
-        <div className="dockInner">
-          <Link href="/members/support" className="linkReset">
-            <div className="dockBtn dockBtnPrimary">Support</div>
-          </Link>
-          <Link href="/members/rooms" className="linkReset">
-            <div className="dockBtn">Lounge</div>
-          </Link>
-          <Link href="/members/forms" className="linkReset">
-            <div className="dockBtn">Forms</div>
-          </Link>
+        <div className="dockGrid">
+          <Link href="/members/support" className="dockBtn btn">Support</Link>
+          <Link href="/members/rooms" className="dockBtn btn">Lounge</Link>
+          <Link href="/members/forms" className="dockBtn btn">Forms</Link>
           <a
             href="https://groupme.com/join_group/113145463/Wxy8CAFk"
             target="_blank"
             rel="noreferrer"
-            className="linkReset"
+            className="dockBtn btn"
           >
-            <div className="dockBtn">GroupMe</div>
+            GroupMe
           </a>
+
+          <Link href="/members/directory" className="dockBtn btn">
+            Directory
+          </Link>
+
+          {/* Profile chip (hides on very small screens so dock doesn’t overflow) */}
+          <Link href="/members/profile" className="avatarChip btn dockHideOnMobile">
+            <span className="avatar">
+              {profile?.avatar_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={profile.avatar_url}
+                  alt="Profile"
+                  style={{ height: "100%", width: "100%", objectFit: "cover" }}
+                />
+              ) : (
+                <span style={{ fontSize: 11, opacity: 0.9 }}>
+                  {initials(displayName)}
+                </span>
+              )}
+            </span>
+            <span className="text-white/85">{displayName}</span>
+          </Link>
         </div>
       </div>
     </div>

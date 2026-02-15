@@ -52,27 +52,72 @@ export default function DirectoryMemberPage() {
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
-    (async () => {
-      // must be logged in
-      const { data: sess } = await supabase.auth.getSession();
-      if (!sess.session) {
-        router.replace("/login");
-        return;
-      }
+  (async () => {
+    const { data: sess } = await supabase.auth.getSession();
+    if (!sess.session) {
+      router.replace("/login");
+      return;
+    }
 
-      // check admin role for revealing admin photo
-      const { data: userRes } = await supabase.auth.getUser();
-      const uid = userRes.user?.id ?? null;
+    // admin check
+    const { data: userRes } = await supabase.auth.getUser();
+    const uid = userRes.user?.id ?? null;
 
-      if (uid) {
-        const { data: roleRow } = await supabase
-          .from("user_roles")
-          .select("role")
-          .eq("user_id", uid)
-          .maybeSingle();
+    let admin = false;
+    if (uid) {
+      const { data: roleRow } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", uid)
+        .maybeSingle();
 
-        setIsAdmin(roleRow?.role === "superadmin" || roleRow?.role === "admin");
-      }
+      admin = roleRow?.role === "superadmin" || roleRow?.role === "admin";
+      setIsAdmin(admin);
+    }
+
+    // fetch profile by username OR user_id
+    let q = supabase
+      .from("profiles")
+      .select(
+        "user_id, display_name, username, phone, email, instagram, tiktok, x, linkedin, bio, avatar_path, admin_photo_path, created_at"
+      );
+
+    if (isUuidLike(slug)) q = q.eq("user_id", slug);
+    else q = q.eq("username", slug);
+
+    const { data, error } = await q.maybeSingle();
+    if (error) {
+      console.error(error);
+      setProfile(null);
+      setLoading(false);
+      return;
+    }
+    if (!data) {
+      setProfile(null);
+      setLoading(false);
+      return;
+    }
+
+    const p = data as ProfileRow;
+    setProfile(p);
+
+    if (p.avatar_path) {
+      const { data: signed } = await supabase.storage
+        .from("avatars")
+        .createSignedUrl(p.avatar_path, 60 * 60);
+      setAvatarUrl(signed?.signedUrl ?? null);
+    }
+
+    if (admin && p.admin_photo_path) {
+      const { data: signed } = await supabase.storage
+        .from("admin-photos")
+        .createSignedUrl(p.admin_photo_path, 60 * 60);
+      setAdminPhotoUrl(signed?.signedUrl ?? null);
+    }
+
+    setLoading(false);
+  })();
+}, [router, slug]);
 
       // fetch by username OR user_id
       let q = supabase

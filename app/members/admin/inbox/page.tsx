@@ -46,7 +46,7 @@ export default function AdminInboxPage() {
       setRole(myRole);
 
       if (!(myRole === "admin" || myRole === "superadmin")) {
-        router.replace("/members");
+        router.replace("/auth/login");
         return;
       }
 

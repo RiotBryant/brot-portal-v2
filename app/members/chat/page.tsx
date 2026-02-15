@@ -40,11 +40,14 @@ export default function BroChat() {
       }
 
       // Your roles are in user_roles, not profiles.role (based on your screenshot)
-      const { data: roleRow, error: roleErr } = await supabase
-        .from("user_roles")
-        .select("role_name")
-        .eq("user_id", user.id)
-        .maybeSingle();
+     const { data: roleRow, error: roleErr } = await supabase
+  .from("user_roles")
+  .select("role")
+  .eq("user_id", user.id)
+  .maybeSingle();
+
+if (roleErr) console.error(roleErr);
+setRole(roleRow?.role || "member");
 
       if (roleErr) console.error(roleErr);
       setRole(roleRow?.role_name || "member");

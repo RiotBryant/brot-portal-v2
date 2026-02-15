@@ -22,7 +22,10 @@ export default function SupportFormPage() {
   const [ok, setOk] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
-  const isAdmin = useMemo(() => role === "admin" || role === "superadmin", [role]);
+  const isAdmin = useMemo(
+    () => role === "admin" || role === "superadmin",
+    [role]
+  );
 
   useEffect(() => {
     (async () => {
@@ -63,7 +66,13 @@ export default function SupportFormPage() {
       return;
     }
 
+    // BUILD MESSAGE FIRST (fixes compile error)
+    const fullBody =
+      `Message:\n${cleanBody}\n\n` +
+      `Urgent?:\n${cleanUrgent || "No answer provided."}`;
+
     setSubmitting(true);
+
     try {
       const { data: u } = await supabase.auth.getUser();
       const uid = u.user?.id;
@@ -72,7 +81,7 @@ export default function SupportFormPage() {
         return;
       }
 
-      // 1) Create the request "thread"
+      // 1) Create request thread
       const { data: req, error: reqErr } = await supabase
         .from("requests")
         .insert({
@@ -81,18 +90,14 @@ export default function SupportFormPage() {
           subject: cleanSubject,
           status: "open",
           visibility: "admin",
-           body: fullBody,
+          body: fullBody,
         })
         .select("id")
         .single();
 
       if (reqErr) throw reqErr;
 
-      // 2) Add first message (includes "urgent" text)
-      const fullBody =
-        `Message:\n${cleanBody}\n\n` +
-        `Urgent?:\n${cleanUrgent || "No answer provided."}`;
-
+      // 2) Insert first message
       const { error: msgErr } = await supabase
         .from("request_messages")
         .insert({
@@ -136,8 +141,16 @@ export default function SupportFormPage() {
           border: 1px solid rgba(255,255,255,0.12);
           transition: transform .12s ease, border-color .12s ease, background .12s ease;
         }
-        .btn:hover { transform: translateY(-1px); border-color: rgba(255,255,255,0.22); background: rgba(255,255,255,0.08); }
-        .btnPrimary { background: #ffffff; color: #000000; border: none; }
+        .btn:hover {
+          transform: translateY(-1px);
+          border-color: rgba(255,255,255,0.22);
+          background: rgba(255,255,255,0.08);
+        }
+        .btnPrimary {
+          background: #ffffff;
+          color: #000000;
+          border: none;
+        }
         .input {
           width: 100%;
           background: rgba(0,0,0,0.35);
@@ -155,20 +168,28 @@ export default function SupportFormPage() {
       <div className="mx-auto max-w-3xl px-5 py-10">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Request Support</h1>
+            <h1 className="text-2xl font-semibold tracking-tight">
+              Request Support
+            </h1>
             <p className="mt-2 text-sm text-white/70">
               Built on presence, not noise. This goes to the admin inbox.
             </p>
           </div>
 
           <div className="text-right">
-            {isAdmin ? (
-              <Link href="/admin/inbox" className="text-xs text-white/70 hover:text-white">
+            {isAdmin && (
+              <Link
+                href="/admin/inbox"
+                className="text-xs text-white/70 hover:text-white"
+              >
                 Admin Inbox →
               </Link>
-            ) : null}
+            )}
             <div className="mt-2">
-              <Link href="/members" className="h-9 rounded-xl px-3 text-sm btn inline-grid place-items-center">
+              <Link
+                href="/members"
+                className="h-9 rounded-xl px-3 text-sm btn inline-grid place-items-center"
+              >
                 Back
               </Link>
             </div>
@@ -221,8 +242,8 @@ export default function SupportFormPage() {
             />
           </div>
 
-          {err ? <div className="mt-4 text-sm text-red-300">{err}</div> : null}
-          {ok ? <div className="mt-4 text-sm text-emerald-200">{ok}</div> : null}
+          {err && <div className="mt-4 text-sm text-red-300">{err}</div>}
+          {ok && <div className="mt-4 text-sm text-emerald-200">{ok}</div>}
 
           <div className="mt-6 flex gap-2">
             <button
@@ -232,7 +253,10 @@ export default function SupportFormPage() {
             >
               {submitting ? "Sending…" : "Send to Admin Inbox"}
             </button>
-            <Link href="/members" className="h-11 rounded-xl px-4 grid place-items-center text-sm btn">
+            <Link
+              href="/members"
+              className="h-11 rounded-xl px-4 grid place-items-center text-sm btn"
+            >
               Cancel
             </Link>
           </div>

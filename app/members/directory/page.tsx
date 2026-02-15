@@ -1,11 +1,11 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 
-type Row = { id: string; username: string | null; avatar_url: string | null };
+type Row = { display_name: string | null; username: string | null };
 
 export default function DirectoryPage() {
   const router = useRouter();
@@ -20,62 +20,55 @@ export default function DirectoryPage() {
         return;
       }
 
-      const { data: list, error } = await supabase
+      const { data: list } = await supabase
         .from("profiles")
-        .select("id, username, avatar_url")
-        .order("username", { ascending: true });
+        .select("display_name, username")
+        .order("created_at", { ascending: true });
 
-      if (!error && list) setRows(list as any);
+      setRows((list as Row[]) ?? []);
       setLoading(false);
     })();
   }, [router]);
 
   return (
     <div className="min-h-screen bg-[#07070b] text-white">
-      <div className="mx-auto max-w-4xl px-5 py-10">
-        <div className="flex items-center justify-between">
+      <style>{`
+        .wrap { width: min(980px, calc(100% - 24px)); margin: 0 auto; padding: 22px 0 40px; }
+        .card { background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.10); border-radius: 24px; padding: 18px; }
+        .btn { display:inline-flex; align-items:center; justify-content:center; height:42px; padding:0 14px; border-radius:999px;
+          border:1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.06); color:#fff; font-size:14px; }
+      `}</style>
+
+      <div className="wrap">
+        <div className="flex items-center justify-between gap-3">
           <div>
-            <div className="text-sm font-semibold">Directory</div>
-            <div className="text-xs text-white/60">members • portal names</div>
+            <div className="text-lg font-semibold">Directory</div>
+            <div className="text-sm text-white/60">broT members (profile names)</div>
           </div>
-          <Link href="/members" className="h-10 rounded-2xl px-4 grid place-items-center text-sm border border-white/10 bg-white/5 hover:bg-white/10">
-            ← Back
-          </Link>
+          <Link className="btn" href="/members">← Back</Link>
         </div>
 
-        <div className="mt-6 rounded-[24px] border border-white/10 bg-white/5 overflow-hidden">
-          <div className="px-5 py-4 border-b border-white/10">
-            <div className="text-sm text-white/70">
-              {loading ? "Loading…" : `${rows.length} members`}
-            </div>
-          </div>
-
-          <div className="divide-y divide-white/10">
-            {rows.map((r) => (
-              <div key={r.id} className="px-5 py-4 flex items-center gap-3">
-                <div className="h-10 w-10 rounded-2xl border border-white/10 bg-black/30 overflow-hidden grid place-items-center">
-                  {r.avatar_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={r.avatar_url} alt="" style={{ height: "100%", width: "100%", objectFit: "cover" }} />
-                  ) : (
-                    <span className="text-xs text-white/70">—</span>
-                  )}
-                </div>
-                <div className="text-sm">
-                  <div className="font-medium">
-                    {r.username?.trim() || "Member"}
+        <div className="card mt-5">
+          {loading ? (
+            <div className="text-sm text-white/60">Loading…</div>
+          ) : rows.length === 0 ? (
+            <div className="text-sm text-white/60">No profiles yet.</div>
+          ) : (
+            <div className="grid gap-2">
+              {rows.map((r, i) => (
+                <div key={i} className="flex items-center justify-between gap-3 border-b border-white/10 pb-2">
+                  <div className="text-sm">
+                    <div className="font-semibold">
+                      {r.display_name || r.username || "Member"}
+                    </div>
+                    <div className="text-white/60">
+                      {r.username ? `@${r.username}` : ""}
+                    </div>
                   </div>
-                  <div className="text-xs text-white/50">{r.id}</div>
                 </div>
-              </div>
-            ))}
-
-            {!loading && rows.length === 0 ? (
-              <div className="px-5 py-10 text-sm text-white/60">
-                No profiles yet.
-              </div>
-            ) : null}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

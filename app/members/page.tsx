@@ -106,7 +106,7 @@ export default function MembersPage() {
 
           <div className="topActions">
             {isAdmin ? (
-              <Link className="chipBtn" href="/admin/inbox">
+              <Link className="chipBtn" href="/members/admin/inbox">
                 Admin Inbox
               </Link>
             ) : null}
@@ -165,7 +165,7 @@ export default function MembersPage() {
                 Open Support Form
               </Link>
               {isAdmin ? (
-                <Link className="btn" href="/admin/inbox">
+                <Link className="btn" href="/members/inbox">
                   View Inbox
                 </Link>
               ) : null}

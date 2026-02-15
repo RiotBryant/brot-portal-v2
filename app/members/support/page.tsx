@@ -7,84 +7,108 @@ import { supabase } from "@/lib/supabase/client";
 
 type Category = "resources" | "legal" | "medical" | "other";
 
-export default function SupportPage() {
+export default function SupportFormPage() {
   const router = useRouter();
 
   const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
+  const [role, setRole] = useState<string>("member");
 
   const [category, setCategory] = useState<Category>("resources");
-  const [urgent, setUrgent] = useState("");
   const [subject, setSubject] = useState("");
-  const [message, setMessage] = useState("");
+  const [body, setBody] = useState("");
+  const [urgent, setUrgent] = useState("");
 
-  const [err, setErr] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   const [ok, setOk] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
 
-  const canSubmit = useMemo(() => {
-    return subject.trim().length >= 3 && message.trim().length >= 10;
-  }, [subject, message]);
+  const isAdmin = useMemo(() => role === "admin" || role === "superadmin", [role]);
 
   useEffect(() => {
     (async () => {
       const { data } = await supabase.auth.getSession();
-      if (!data.session) router.replace("/login");
-      else setLoading(false);
+      if (!data.session) {
+        router.replace("/login");
+        return;
+      }
+
+      const { data: u } = await supabase.auth.getUser();
+      const uid = u.user?.id;
+      if (!uid) {
+        router.replace("/login");
+        return;
+      }
+
+      const { data: r } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", uid)
+        .maybeSingle();
+
+      setRole(r?.role ?? "member");
+      setLoading(false);
     })();
   }, [router]);
 
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function submit() {
     setErr(null);
     setOk(null);
 
-    if (!canSubmit) {
-      setErr("Add a subject + a clear message (10+ chars).");
+    const cleanSubject = subject.trim();
+    const cleanBody = body.trim();
+    const cleanUrgent = urgent.trim();
+
+    if (!cleanSubject || !cleanBody) {
+      setErr("Subject + message are required.");
       return;
     }
 
     setSubmitting(true);
     try {
-      const { data: auth } = await supabase.auth.getUser();
-      const user = auth.user;
-      if (!user) {
+      const { data: u } = await supabase.auth.getUser();
+      const uid = u.user?.id;
+      if (!uid) {
         router.replace("/login");
         return;
       }
 
-      // Insert request
+      // 1) Create the request "thread"
       const { data: req, error: reqErr } = await supabase
         .from("requests")
         .insert({
-          created_by: user.id,
+          created_by: uid,
           category,
-          subject: subject.trim(),
-          body: message.trim(),
+          subject: cleanSubject,
           status: "open",
-          visibility: "admins",
+          visibility: "admin",
         })
         .select("id")
         .single();
 
       if (reqErr) throw reqErr;
 
-      // Optional: create first message record (future-proof thread)
-      await supabase.from("request_messages").insert({
-        request_id: req.id,
-        author_id: user.id,
-        body: `URGENT? ${urgent.trim() || "Not specified"}\n\n${message.trim()}`,
-        is_internal: false,
-      });
+      // 2) Add first message (includes "urgent" text)
+      const fullBody =
+        `Message:\n${cleanBody}\n\n` +
+        `Urgent?:\n${cleanUrgent || "No answer provided."}`;
 
-      setOk("Sent. This is now in the admin inbox.");
+      const { error: msgErr } = await supabase
+        .from("request_messages")
+        .insert({
+          request_id: req.id,
+          author_id: uid,
+          body: fullBody,
+          is_internal: false,
+        });
+
+      if (msgErr) throw msgErr;
+
+      setOk("Sent. An admin will see this in the inbox.");
       setSubject("");
+      setBody("");
       setUrgent("");
-      setMessage("");
-
-      // If you want to bounce them back after a sec:
-      // setTimeout(() => router.push("/members"), 900);
     } catch (e: any) {
-      setErr(e?.message ?? "Something failed. Try again.");
+      setErr(e?.message ?? "Failed to send.");
     } finally {
       setSubmitting(false);
     }
@@ -100,96 +124,121 @@ export default function SupportPage() {
 
   return (
     <div className="min-h-screen bg-[#07070b] text-white">
-      <div className="mx-auto max-w-2xl px-5 py-10">
-        <div className="mb-6">
-          <Link
-            href="/members"
-            className="text-sm text-white/70 hover:text-white"
-          >
-            ← Back to portal
-          </Link>
+      <style>{`
+        .glass {
+          background: rgba(255,255,255,0.04);
+          border: 1px solid rgba(255,255,255,0.10);
+          box-shadow: 0 0 60px rgba(80,170,255,0.06);
+        }
+        .btn {
+          background: rgba(255,255,255,0.06);
+          border: 1px solid rgba(255,255,255,0.12);
+          transition: transform .12s ease, border-color .12s ease, background .12s ease;
+        }
+        .btn:hover { transform: translateY(-1px); border-color: rgba(255,255,255,0.22); background: rgba(255,255,255,0.08); }
+        .btnPrimary { background: #ffffff; color: #000000; border: none; }
+        .input {
+          width: 100%;
+          background: rgba(0,0,0,0.35);
+          border: 1px solid rgba(255,255,255,0.10);
+          border-radius: 14px;
+          padding: 10px 12px;
+          outline: none;
+        }
+        .input:focus {
+          border-color: rgba(90,170,255,0.35);
+          box-shadow: 0 0 0 3px rgba(90,170,255,0.12);
+        }
+      `}</style>
+
+      <div className="mx-auto max-w-3xl px-5 py-10">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">Request Support</h1>
+            <p className="mt-2 text-sm text-white/70">
+              Built on presence, not noise. This goes to the admin inbox.
+            </p>
+          </div>
+
+          <div className="text-right">
+            {isAdmin ? (
+              <Link href="/admin/inbox" className="text-xs text-white/70 hover:text-white">
+                Admin Inbox →
+              </Link>
+            ) : null}
+            <div className="mt-2">
+              <Link href="/members" className="h-9 rounded-xl px-3 text-sm btn inline-grid place-items-center">
+                Back
+              </Link>
+            </div>
+          </div>
         </div>
 
-        <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-6 shadow-[0_0_40px_rgba(80,170,255,0.08)]">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Request Support
-          </h1>
-          <p className="mt-2 text-sm text-white/70">
-            This goes to the admin inbox. Quiet by design.
-          </p>
+        <div className="mt-6 glass rounded-2xl p-6">
+          <label className="text-xs text-white/60">Category</label>
+          <select
+            className="input mt-2"
+            value={category}
+            onChange={(e) => setCategory(e.target.value as Category)}
+          >
+            <option value="resources">Resources</option>
+            <option value="legal">Legal</option>
+            <option value="medical">Medical</option>
+            <option value="other">Other</option>
+          </select>
 
-          <form onSubmit={onSubmit} className="mt-6 grid gap-4">
-            <div className="grid gap-2">
-              <label className="text-sm text-white/80">Category</label>
-              <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value as Category)}
-                className="h-11 rounded-xl border border-white/10 bg-black/40 px-3 text-white outline-none focus:border-white/25"
-              >
-                <option value="resources">resources</option>
-                <option value="legal">legal</option>
-                <option value="medical">medical</option>
-                <option value="other">other</option>
-              </select>
-            </div>
+          <div className="mt-4">
+            <label className="text-xs text-white/60">Subject</label>
+            <input
+              className="input mt-2"
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+              placeholder="Short title (what’s going on?)"
+              maxLength={120}
+            />
+          </div>
 
-            <div className="grid gap-2">
-              <label className="text-sm text-white/80">
-                Is this urgent? (tell us)
-              </label>
-              <input
-                value={urgent}
-                onChange={(e) => setUrgent(e.target.value)}
-                placeholder="Example: yes — need a call tonight / no — whenever"
-                className="h-11 rounded-xl border border-white/10 bg-black/40 px-3 text-white placeholder:text-white/35 outline-none focus:border-white/25"
-              />
-            </div>
+          <div className="mt-4">
+            <label className="text-xs text-white/60">Message</label>
+            <textarea
+              className="input mt-2"
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              placeholder="Write what you need. Calm + clear."
+              rows={6}
+            />
+          </div>
 
-            <div className="grid gap-2">
-              <label className="text-sm text-white/80">Subject</label>
-              <input
-                value={subject}
-                onChange={(e) => setSubject(e.target.value)}
-                placeholder="Short + clear"
-                className="h-11 rounded-xl border border-white/10 bg-black/40 px-3 text-white placeholder:text-white/35 outline-none focus:border-white/25"
-              />
-            </div>
+          <div className="mt-4">
+            <label className="text-xs text-white/60">Is this urgent?</label>
+            <input
+              className="input mt-2"
+              value={urgent}
+              onChange={(e) => setUrgent(e.target.value)}
+              placeholder="If yes, say why / timeframe. If not, say ‘no’."
+              maxLength={140}
+            />
+          </div>
 
-            <div className="grid gap-2">
-              <label className="text-sm text-white/80">Message</label>
-              <textarea
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                placeholder="Write what’s going on. No performance required."
-                rows={6}
-                className="rounded-xl border border-white/10 bg-black/40 p-3 text-white placeholder:text-white/35 outline-none focus:border-white/25"
-              />
-            </div>
+          {err ? <div className="mt-4 text-sm text-red-300">{err}</div> : null}
+          {ok ? <div className="mt-4 text-sm text-emerald-200">{ok}</div> : null}
 
-            {err ? (
-              <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">
-                {err}
-              </div>
-            ) : null}
-
-            {ok ? (
-              <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-200">
-                {ok}
-              </div>
-            ) : null}
-
+          <div className="mt-6 flex gap-2">
             <button
-              type="submit"
-              disabled={submitting || !canSubmit}
-              className="mt-2 h-11 rounded-xl bg-white text-black font-medium tracking-tight disabled:opacity-40"
+              onClick={submit}
+              disabled={submitting}
+              className="h-11 rounded-xl px-4 text-sm btnPrimary"
             >
               {submitting ? "Sending…" : "Send to Admin Inbox"}
             </button>
+            <Link href="/members" className="h-11 rounded-xl px-4 grid place-items-center text-sm btn">
+              Cancel
+            </Link>
+          </div>
+        </div>
 
-            <p className="text-xs text-white/45">
-              If you’re in immediate danger, call local emergency services.
-            </p>
-          </form>
+        <div className="mt-6 text-xs text-white/45">
+          Nothing auto-joins. Nothing is recorded here. Quiet by design.
         </div>
       </div>
     </div>

@@ -81,6 +81,7 @@ export default function SupportFormPage() {
           subject: cleanSubject,
           status: "open",
           visibility: "admin",
+           body: fullBody,
         })
         .select("id")
         .single();

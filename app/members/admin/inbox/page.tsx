@@ -30,11 +30,11 @@ export default function AdminInboxPage() {
   useEffect(() => {
     (async () => {
       const { data: sess } = await supabase.auth.getSession();
-      if (!sess.session) return router.replace("/login");
+      if (!sess.session) return router.replace("/members/login");
 
       const { data: u } = await supabase.auth.getUser();
       const uid = u.user?.id;
-      if (!uid) return router.replace("/login");
+      if (!uid) return router.replace("/members/login");
 
       const { data: r } = await supabase
         .from("user_roles")

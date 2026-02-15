@@ -1,18 +1,17 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 
 export default function ProfilePage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [uid, setUid] = useState<string | null>(null);
-
-  const [username, setUsername] = useState("");
-  const [avatarUrl, setAvatarUrl] = useState("");
   const [saving, setSaving] = useState(false);
+
+  const [displayName, setDisplayName] = useState("");
+  const [username, setUsername] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
 
   useEffect(() => {
@@ -22,93 +21,111 @@ export default function ProfilePage() {
         router.replace("/login");
         return;
       }
-
       const { data: u } = await supabase.auth.getUser();
-      const id = u.user?.id ?? null;
-      setUid(id);
-
-      if (id) {
-        const { data: p } = await supabase
-          .from("profiles")
-          .select("username, avatar_url")
-          .eq("id", id)
-          .maybeSingle();
-
-        setUsername(p?.username ?? "");
-        setAvatarUrl(p?.avatar_url ?? "");
+      const uid = u.user?.id;
+      if (!uid) {
+        router.replace("/login");
+        return;
       }
 
+      const { data: p } = await supabase
+        .from("profiles")
+        .select("display_name, username")
+        .eq("user_id", uid)
+        .maybeSingle();
+
+      setDisplayName(p?.display_name ?? "");
+      setUsername(p?.username ?? "");
       setLoading(false);
     })();
   }, [router]);
 
   async function save() {
-    if (!uid) return;
     setSaving(true);
     setMsg(null);
 
-    const cleanName = username.trim();
+    const { data: u } = await supabase.auth.getUser();
+    const uid = u.user?.id;
+    if (!uid) {
+      router.replace("/login");
+      return;
+    }
 
-    const { error } = await supabase.from("profiles").upsert(
-      {
-        id: uid,
-        username: cleanName.length ? cleanName : null,
-        avatar_url: avatarUrl.trim().length ? avatarUrl.trim() : null,
-      },
-      { onConflict: "id" }
-    );
+    const cleanUsername = username.trim().replace(/\s+/g, "").toLowerCase();
+
+    const { error } = await supabase.from("profiles").upsert({
+      user_id: uid,
+      display_name: displayName.trim() || null,
+      username: cleanUsername || null,
+    });
+
+    if (error) setMsg(error.message);
+    else setMsg("Saved.");
 
     setSaving(false);
-    setMsg(error ? `Error: ${error.message}` : "Saved.");
-  }
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#07070b] text-white grid place-items-center">
-        <div className="opacity-70 text-sm">Loading…</div>
-      </div>
-    );
   }
 
   return (
     <div className="min-h-screen bg-[#07070b] text-white">
-      <div className="mx-auto max-w-xl px-5 py-10">
-        <div className="flex items-center justify-between">
+      <style>{`
+        .wrap { width: min(720px, calc(100% - 24px)); margin: 0 auto; padding: 22px 0 40px; }
+        .card { background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.10); border-radius: 24px; padding: 18px; }
+        .btn { display:inline-flex; align-items:center; justify-content:center; height:44px; padding:0 16px; border-radius:999px;
+          border:1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.06); color:#fff; font-size:14px; }
+        .btnPrimary { background:#fff; color:#000; border:none; }
+        input {
+          width: 100%;
+          height: 44px;
+          border-radius: 14px;
+          border: 1px solid rgba(255,255,255,0.12);
+          background: rgba(0,0,0,0.35);
+          color: white;
+          padding: 0 12px;
+          outline: none;
+        }
+        label { font-size: 12px; color: rgba(255,255,255,0.65); }
+      `}</style>
+
+      <div className="wrap">
+        <div className="flex items-center justify-between gap-3">
           <div>
-            <div className="text-sm font-semibold">Profile</div>
-            <div className="text-xs text-white/60">portal name • avatar</div>
+            <div className="text-lg font-semibold">Profile</div>
+            <div className="text-sm text-white/60">Portal name + username</div>
           </div>
-          <Link href="/members" className="h-10 rounded-2xl px-4 grid place-items-center text-sm border border-white/10 bg-white/5 hover:bg-white/10">
-            ← Back
-          </Link>
+          <Link className="btn" href="/members">← Back</Link>
         </div>
 
-        <div className="mt-6 rounded-[24px] border border-white/10 bg-white/5 p-6">
-          <label className="block text-xs text-white/60">Portal name (not email)</label>
-          <input
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            placeholder="ex: Riot Bryant"
-            className="mt-2 w-full h-11 rounded-2xl px-4 bg-black/30 border border-white/10 outline-none"
-          />
+        <div className="card mt-5">
+          {loading ? (
+            <div className="text-sm text-white/60">Loading…</div>
+          ) : (
+            <div className="grid gap-4">
+              <div>
+                <label>Portal Name (display)</label>
+                <input
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  placeholder="e.g., Riot Bryant"
+                />
+              </div>
 
-          <label className="block text-xs text-white/60 mt-5">Avatar URL (optional)</label>
-          <input
-            value={avatarUrl}
-            onChange={(e) => setAvatarUrl(e.target.value)}
-            placeholder="https://..."
-            className="mt-2 w-full h-11 rounded-2xl px-4 bg-black/30 border border-white/10 outline-none"
-          />
+              <div>
+                <label>Username (no spaces)</label>
+                <input
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="e.g., riotbryant"
+                />
+              </div>
 
-          <button
-            onClick={save}
-            disabled={saving}
-            className="mt-6 h-11 rounded-2xl px-5 bg-white text-black font-medium disabled:opacity-60"
-          >
-            {saving ? "Saving…" : "Save"}
-          </button>
-
-          {msg ? <div className="mt-3 text-sm text-white/70">{msg}</div> : null}
+              <div className="flex items-center gap-2">
+                <button className="btn btnPrimary" onClick={save} disabled={saving}>
+                  {saving ? "Saving…" : "Save"}
+                </button>
+                {msg ? <div className="text-sm text-white/70">{msg}</div> : null}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

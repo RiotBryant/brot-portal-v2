@@ -45,49 +45,22 @@ export default function MembersPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#07070b] text-white grid place-items-center">
-        <div className="opacity-70 text-sm">Loading…</div>
+      <div style={{ minHeight: "100vh", display: "grid", placeItems: "center", background: "#07070b", color: "white" }}>
+        <div style={{ opacity: 0.7, fontSize: 14 }}>Loading…</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#07070b] text-white">
+    <div style={{ minHeight: "100vh", background: "#07070b", color: "white" }}>
       <style>{`
         :root { color-scheme: dark; }
-        .glass {
-          background: rgba(255,255,255,0.045);
-          border: 1px solid rgba(255,255,255,0.10);
-          box-shadow: 0 0 90px rgba(80,170,255,0.06);
-          backdrop-filter: blur(10px);
-        }
-        .card {
-          background: rgba(0,0,0,0.35);
-          border: 1px solid rgba(255,255,255,0.10);
-          transition: transform .14s ease, border-color .14s ease, background .14s ease;
-        }
-        .card:hover { transform: translateY(-2px); border-color: rgba(255,255,255,0.20); background: rgba(0,0,0,0.45); }
-        .btn {
-          background: rgba(255,255,255,0.06);
-          border: 1px solid rgba(255,255,255,0.14);
-          transition: transform .12s ease, border-color .12s ease, background .12s ease;
-        }
-        .btn:hover { transform: translateY(-1px); border-color: rgba(255,255,255,0.22); background: rgba(255,255,255,0.08); }
-        .btnPrimary {
-          background: rgba(255,255,255,0.92);
-          color: #0b0b12;
-          border: 1px solid rgba(255,255,255,0.65);
-        }
-        .muted { color: rgba(255,255,255,0.70); }
-        .muted2 { color: rgba(255,255,255,0.55); }
-        .hairline { height: 1px; background: rgba(255,255,255,0.10); }
-        .tag {
-          background: rgba(255,255,255,0.06);
-          border: 1px solid rgba(255,255,255,0.12);
-        }
-        .glow {
-          position: absolute;
-          inset: -220px;
+        * { box-sizing: border-box; }
+        a { text-decoration: none; color: inherit; }
+
+        .bgGlow {
+          position: fixed;
+          inset: -260px;
           background:
             radial-gradient(55% 55% at 30% 35%, rgba(92,177,255,0.18), transparent 60%),
             radial-gradient(55% 55% at 70% 35%, rgba(255,90,200,0.14), transparent 60%),
@@ -95,209 +68,315 @@ export default function MembersPage() {
           filter: blur(28px);
           opacity: 0.95;
           pointer-events: none;
+          z-index: 0;
         }
+
+        .wrap { position: relative; z-index: 1; max-width: 1100px; margin: 0 auto; padding: 18px 18px 96px; }
+
+        .topbar {
+          position: sticky;
+          top: 0;
+          z-index: 50;
+          background: rgba(7,7,11,0.78);
+          backdrop-filter: blur(10px);
+          border-bottom: 1px solid rgba(255,255,255,0.10);
+        }
+
+        .topbarInner {
+          max-width: 1100px;
+          margin: 0 auto;
+          padding: 14px 18px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+        }
+
+        .title {
+          font-weight: 650;
+          letter-spacing: -0.02em;
+          font-size: 16px;
+          line-height: 1.2;
+          margin: 0;
+        }
+        .sub {
+          margin: 4px 0 0;
+          font-size: 12px;
+          color: rgba(255,255,255,0.55);
+        }
+
+        .pillRow { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+        .pill {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 8px 12px;
+          border-radius: 999px;
+          background: rgba(255,255,255,0.06);
+          border: 1px solid rgba(255,255,255,0.12);
+          color: rgba(255,255,255,0.78);
+          font-size: 12px;
+        }
+
+        .hero {
+          margin-top: 18px;
+          border-radius: 26px;
+          padding: 18px;
+          background: rgba(255,255,255,0.045);
+          border: 1px solid rgba(255,255,255,0.10);
+          box-shadow: 0 0 90px rgba(80,170,255,0.06);
+          backdrop-filter: blur(10px);
+        }
+        .heroH1 {
+          margin: 12px 0 0;
+          font-size: 30px;
+          letter-spacing: -0.03em;
+          line-height: 1.1;
+          font-weight: 700;
+        }
+        .heroP {
+          margin: 10px 0 0;
+          font-size: 14px;
+          line-height: 1.5;
+          color: rgba(255,255,255,0.72);
+          max-width: 760px;
+        }
+
+        .btnRow { margin-top: 16px; display: flex; flex-wrap: wrap; gap: 10px; }
+
+        /* REAL BUTTONS (works even if Tailwind is broken) */
+        .btn {
+          height: 44px;
+          padding: 0 18px;
+          border-radius: 999px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 10px;
+          font-size: 14px;
+          font-weight: 600;
+          background: rgba(255,255,255,0.06);
+          border: 1px solid rgba(255,255,255,0.14);
+          color: rgba(255,255,255,0.92);
+          transition: transform .12s ease, border-color .12s ease, background .12s ease;
+          user-select: none;
+          white-space: nowrap;
+        }
+        .btn:hover { transform: translateY(-1px); border-color: rgba(255,255,255,0.22); background: rgba(255,255,255,0.09); }
+        .btnPrimary {
+          background: rgba(255,255,255,0.92);
+          color: #0b0b12;
+          border: 1px solid rgba(255,255,255,0.60);
+        }
+        .btnDanger { background: rgba(255,255,255,0.06); }
+        .btnSmall { height: 38px; padding: 0 14px; font-size: 13px; font-weight: 600; }
+
+        .grid {
+          margin-top: 16px;
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 12px;
+        }
+        @media (min-width: 860px) {
+          .hero { padding: 22px; }
+          .grid { grid-template-columns: 1fr 1fr; gap: 14px; }
+          .heroTop { display: flex; align-items: flex-end; justify-content: space-between; gap: 14px; }
+        }
+
+        .card {
+          border-radius: 20px;
+          padding: 16px;
+          background: rgba(0,0,0,0.35);
+          border: 1px solid rgba(255,255,255,0.10);
+          transition: transform .14s ease, border-color .14s ease, background .14s ease;
+        }
+        .card:hover { transform: translateY(-2px); border-color: rgba(255,255,255,0.20); background: rgba(0,0,0,0.45); }
+
+        .cardTitle { font-size: 16px; font-weight: 700; margin: 0; }
+        .cardP { margin: 8px 0 0; font-size: 13px; color: rgba(255,255,255,0.70); line-height: 1.45; }
+        .cardMeta { margin-top: 8px; font-size: 12px; color: rgba(255,255,255,0.55); }
+        .cardBtns { margin-top: 14px; display: flex; flex-wrap: wrap; gap: 10px; }
+
+        /* Mobile bottom dock */
+        .dock {
+          position: fixed;
+          left: 0; right: 0; bottom: 0;
+          z-index: 60;
+          background: rgba(7,7,11,0.86);
+          backdrop-filter: blur(10px);
+          border-top: 1px solid rgba(255,255,255,0.10);
+          padding: 10px 10px 12px;
+        }
+        .dockInner {
+          max-width: 1100px;
+          margin: 0 auto;
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 8px;
+        }
+        .dockBtn {
+          height: 46px;
+          border-radius: 16px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 12px;
+          font-weight: 700;
+          background: rgba(255,255,255,0.06);
+          border: 1px solid rgba(255,255,255,0.14);
+          color: rgba(255,255,255,0.92);
+        }
+        .dockBtnPrimary {
+          background: rgba(255,255,255,0.92);
+          color: #0b0b12;
+          border: 1px solid rgba(255,255,255,0.60);
+        }
+
+        /* Make sure links never look like underlined 1999 links */
+        .linkReset { text-decoration: none !important; color: inherit !important; }
       `}</style>
 
-      {/* Background glow */}
-      <div className="relative">
-        <div className="glow" />
-      </div>
+      <div className="bgGlow" />
 
-      {/* Sticky top bar */}
-      <div className="sticky top-0 z-30 border-b border-white/10 bg-[#07070b]/75 backdrop-blur">
-        <div className="mx-auto max-w-6xl px-5 py-4 flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <div className="text-base sm:text-lg font-semibold tracking-tight truncate">
-              broT Members Portal
-            </div>
-            <div className="text-xs muted2 truncate">
-              Quiet by design • presence over performance
-            </div>
+      <div className="topbar">
+        <div className="topbarInner">
+          <div style={{ minWidth: 0 }}>
+            <div className="title">broT Members Portal</div>
+            <div className="sub">Quiet by design • presence over performance</div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             {isAdmin ? (
-              <Link href="/admin/inbox" className="h-9 rounded-full px-3 text-sm grid place-items-center btn">
-                Admin Inbox
+              <Link href="/admin/inbox" className="linkReset">
+                <span className="btn btnSmall">Admin Inbox</span>
               </Link>
             ) : null}
 
-            <button onClick={logout} className="h-9 rounded-full px-3 text-sm btn">
+            <button onClick={logout} className="btn btnSmall btnDanger" type="button">
               Log out
             </button>
           </div>
         </div>
       </div>
 
-      <div className="mx-auto max-w-6xl px-5 pt-6 pb-24">
-        {/* Hero */}
-        <div className="glass rounded-[28px] p-6 sm:p-8">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <div className="wrap">
+        <div className="hero">
+          <div className="heroTop">
             <div>
-              <div className="inline-flex items-center gap-2">
-                <span className="tag rounded-full px-3 py-1 text-xs muted">
-                  Role: <span className="text-white">{role}</span>
-                </span>
-                <span className="tag rounded-full px-3 py-1 text-xs muted">
-                  Nothing auto-joins
-                </span>
-                <span className="tag rounded-full px-3 py-1 text-xs muted">
-                  Nothing is recorded
-                </span>
+              <div className="pillRow">
+                <span className="pill">Role: <span style={{ color: "white" }}>{role}</span></span>
+                <span className="pill">Nothing auto-joins</span>
+                <span className="pill">Nothing is recorded</span>
               </div>
 
-              <h1 className="mt-4 text-2xl sm:text-3xl font-semibold tracking-tight">
-                Built for calm access.
-              </h1>
-              <p className="mt-2 text-sm muted max-w-2xl">
+              <h1 className="heroH1">Built for calm access.</h1>
+              <p className="heroP">
                 Everything here is deliberate: support routes to admins, lounge opens rooms, forms stay simple,
                 and broBOT will live inside the portal later (not a widget mess).
               </p>
             </div>
 
-            <div className="flex flex-wrap gap-2 sm:justify-end">
-              <Link href="/members/support" className="h-11 rounded-full px-6 grid place-items-center text-sm btnPrimary">
-                Request Support
+            <div className="btnRow">
+              <Link href="/members/support" className="linkReset">
+                <span className="btn btnPrimary">Request Support</span>
               </Link>
-              <Link href="/members/rooms" className="h-11 rounded-full px-6 grid place-items-center text-sm btn">
-                Enter Lounge
+              <Link href="/members/rooms" className="linkReset">
+                <span className="btn">Enter Lounge</span>
               </Link>
-              <Link href="/members/forms" className="h-11 rounded-full px-6 grid place-items-center text-sm btn">
-                Forms
+              <Link href="/members/forms" className="linkReset">
+                <span className="btn">Forms</span>
               </Link>
             </div>
           </div>
         </div>
 
-        {/* Quick Actions */}
-        <div className="mt-6">
-          <div className="text-sm font-semibold tracking-tight">Quick Actions</div>
-          <div className="mt-3 grid gap-4 md:grid-cols-2">
-            {/* Support */}
-            <div className="card rounded-2xl p-6">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <div className="text-lg font-semibold">Support</div>
-                  <div className="mt-1 text-sm muted">
-                    Private request → goes to admin inbox.
-                  </div>
-                </div>
-                <div className="text-xs muted2">Tracked • calm</div>
-              </div>
+        <div style={{ marginTop: 14, fontWeight: 700, fontSize: 14 }}>Quick Actions</div>
 
-              <div className="mt-4 flex flex-wrap gap-2">
-                <Link href="/members/support" className="h-11 rounded-full px-6 grid place-items-center text-sm btnPrimary">
-                  Open Support Form
+        <div className="grid">
+          <div className="card">
+            <h2 className="cardTitle">Support</h2>
+            <p className="cardP">Private request → goes to admin inbox.</p>
+            <div className="cardMeta">resources • legal • medical • other</div>
+            <div className="cardBtns">
+              <Link href="/members/support" className="linkReset">
+                <span className="btn btnPrimary">Open Support Form</span>
+              </Link>
+              {isAdmin ? (
+                <Link href="/admin/inbox" className="linkReset">
+                  <span className="btn">View Inbox</span>
                 </Link>
-                <div className="h-11 rounded-full px-6 grid place-items-center text-sm btn">
-                  resources • legal • medical • other
-                </div>
-              </div>
-            </div>
-
-            {/* Community */}
-            <div className="card rounded-2xl p-6">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <div className="text-lg font-semibold">Community</div>
-                  <div className="mt-1 text-sm muted">
-                    GroupMe for now. Portal chat later.
-                  </div>
-                </div>
-                <div className="text-xs muted2">Temporary</div>
-              </div>
-
-              <div className="mt-4 flex flex-wrap gap-2">
-                <a
-                  href="https://groupme.com/join_group/113145463/Wxy8CAFk"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="h-11 rounded-full px-6 grid place-items-center text-sm btnPrimary"
-                >
-                  Open GroupMe
-                </a>
-                <div className="h-11 rounded-full px-6 grid place-items-center text-sm btn">
-                  chat: coming soon
-                </div>
-              </div>
-            </div>
-
-            {/* Lounge */}
-            <div className="card rounded-2xl p-6">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <div className="text-lg font-semibold">broT Lounge</div>
-                  <div className="mt-1 text-sm muted">
-                    Rooms are secondary on purpose. Click opens. No auto-join.
-                  </div>
-                </div>
-                <div className="text-xs muted2">Safe entry</div>
-              </div>
-
-              <div className="mt-4 flex flex-wrap gap-2">
-                <Link href="/members/rooms" className="h-11 rounded-full px-6 grid place-items-center text-sm btnPrimary">
-                  Enter Lounge
-                </Link>
-                <a
-                  href="https://meet.jit.si/SpaceToLand-broThercollecTive"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="h-11 rounded-full px-6 grid place-items-center text-sm btn"
-                >
-                  Weekly Meeting
-                </a>
-              </div>
-            </div>
-
-            {/* broBOT */}
-            <div className="card rounded-2xl p-6">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <div className="text-lg font-semibold">broBOT</div>
-                  <div className="mt-1 text-sm muted">
-                    Grounding • guidance • routing. Portal-native later.
-                  </div>
-                </div>
-                <div className="text-xs muted2">Coming soon</div>
-              </div>
-
-              <div className="mt-4 flex flex-wrap gap-2">
-                <Link href="/members/brobot" className="h-11 rounded-full px-6 grid place-items-center text-sm btn">
-                  Open broBOT
-                </Link>
-                <div className="h-11 rounded-full px-6 grid place-items-center text-sm btn">
-                  not a widget mess
-                </div>
-              </div>
+              ) : null}
             </div>
           </div>
-        </div>
 
-        {/* Footer note */}
-        <div className="mt-8 text-center text-xs muted2">
-          Quiet by design. Presence over performance.
+          <div className="card">
+            <h2 className="cardTitle">Community</h2>
+            <p className="cardP">GroupMe for now. Portal chat later.</p>
+            <div className="cardMeta">temporary channel</div>
+            <div className="cardBtns">
+              <a
+                href="https://groupme.com/join_group/113145463/Wxy8CAFk"
+                target="_blank"
+                rel="noreferrer"
+                className="linkReset"
+              >
+                <span className="btn btnPrimary">Open GroupMe</span>
+              </a>
+              <span className="btn" style={{ opacity: 0.72, cursor: "default" }}>Chat: coming soon</span>
+            </div>
+          </div>
+
+          <div className="card">
+            <h2 className="cardTitle">broT Lounge</h2>
+            <p className="cardP">Rooms are secondary on purpose. Click opens. No auto-join.</p>
+            <div className="cardMeta">safe entry</div>
+            <div className="cardBtns">
+              <Link href="/members/rooms" className="linkReset">
+                <span className="btn btnPrimary">Enter Lounge</span>
+              </Link>
+              <a
+                href="https://meet.jit.si/SpaceToLand-broThercollecTive"
+                target="_blank"
+                rel="noreferrer"
+                className="linkReset"
+              >
+                <span className="btn">Weekly Meeting</span>
+              </a>
+            </div>
+          </div>
+
+          <div className="card">
+            <h2 className="cardTitle">broBOT</h2>
+            <p className="cardP">Grounding • guidance • routing. Portal-native later.</p>
+            <div className="cardMeta">coming soon</div>
+            <div className="cardBtns">
+              <Link href="/members/brobot" className="linkReset">
+                <span className="btn">Open broBOT</span>
+              </Link>
+              <span className="btn" style={{ opacity: 0.72, cursor: "default" }}>Not a widget mess</span>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Mobile bottom dock (real buttons; nobody has to “click words”) */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-white/10 bg-[#07070b]/85 backdrop-blur">
-        <div className="mx-auto max-w-6xl px-4 py-3 grid grid-cols-4 gap-2 text-xs">
-          <Link href="/members/support" className="h-11 rounded-2xl grid place-items-center btnPrimary">
-            Support
+      <div className="dock">
+        <div className="dockInner">
+          <Link href="/members/support" className="linkReset">
+            <div className="dockBtn dockBtnPrimary">Support</div>
           </Link>
-          <Link href="/members/rooms" className="h-11 rounded-2xl grid place-items-center btn">
-            Lounge
+          <Link href="/members/rooms" className="linkReset">
+            <div className="dockBtn">Lounge</div>
           </Link>
-          <Link href="/members/forms" className="h-11 rounded-2xl grid place-items-center btn">
-            Forms
+          <Link href="/members/forms" className="linkReset">
+            <div className="dockBtn">Forms</div>
           </Link>
           <a
             href="https://groupme.com/join_group/113145463/Wxy8CAFk"
             target="_blank"
             rel="noreferrer"
-            className="h-11 rounded-2xl grid place-items-center btn"
+            className="linkReset"
           >
-            GroupMe
+            <div className="dockBtn">GroupMe</div>
           </a>
         </div>
       </div>

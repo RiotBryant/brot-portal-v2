@@ -13,8 +13,10 @@ type Profile = {
 
 export default function MembersPage() {
   const router = useRouter();
+
   const [role, setRole] = useState<string>("member");
   const [loading, setLoading] = useState(true);
+
   const [profile, setProfile] = useState<Profile>({
     display_name: null,
     username: null,
@@ -41,14 +43,12 @@ export default function MembersPage() {
         return;
       }
 
-      // role
       const { data: r } = await supabase
         .from("user_roles")
         .select("role")
         .eq("user_id", uid)
         .maybeSingle();
 
-      // profile (for bottom bar)
       const { data: p } = await supabase
         .from("profiles")
         .select("display_name, username, avatar_url")
@@ -61,6 +61,7 @@ export default function MembersPage() {
         username: p?.username ?? null,
         avatar_url: p?.avatar_url ?? null,
       });
+
       setLoading(false);
     })();
   }, [router]);
@@ -82,148 +83,35 @@ export default function MembersPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#07070b] text-white grid place-items-center">
-        <div className="opacity-70 text-sm">Loading…</div>
+      <div className="page">
+        <style>{baseCSS}</style>
+        <div className="center">
+          <div className="muted">Loading…</div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#07070b] text-white">
-      <style>{`
-        :root { color-scheme: dark; }
-        @keyframes softPulse {
-          0%, 100% { opacity: 0.70; transform: scale(1); }
-          50% { opacity: 0.92; transform: scale(1.02); }
-        }
-        .heroGlow {
-          background:
-            radial-gradient(900px 500px at 20% 20%, rgba(80,170,255,0.25), transparent 60%),
-            radial-gradient(900px 500px at 80% 30%, rgba(255,80,210,0.18), transparent 60%),
-            radial-gradient(900px 500px at 50% 90%, rgba(40,255,200,0.10), transparent 60%),
-            linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.0));
-          border: 1px solid rgba(255,255,255,0.08);
-          box-shadow: 0 0 80px rgba(0,0,0,0.35);
-          animation: softPulse 6s ease-in-out infinite;
-        }
-        .card {
-          background: rgba(255,255,255,0.035);
-          border: 1px solid rgba(255,255,255,0.10);
-          box-shadow: 0 0 60px rgba(0,0,0,0.35);
-        }
-        .btn {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          height: 44px;
-          padding: 0 16px;
-          border-radius: 999px;
-          border: 1px solid rgba(255,255,255,0.12);
-          background: rgba(255,255,255,0.06);
-          color: white;
-          font-size: 14px;
-          line-height: 1;
-          transition: transform .12s ease, background .12s ease, border-color .12s ease;
-          user-select: none;
-        }
-        .btn:hover { transform: translateY(-1px); background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.18); }
-        .btnPrimary {
-          background: #fff;
-          color: #000;
-          border: none;
-        }
-        .pill {
-          display: inline-flex;
-          align-items: center;
-          gap: 8px;
-          height: 34px;
-          padding: 0 12px;
-          border-radius: 999px;
-          border: 1px solid rgba(255,255,255,0.10);
-          background: rgba(0,0,0,0.25);
-          color: rgba(255,255,255,0.80);
-          font-size: 12px;
-        }
-        .dock {
-          position: sticky;
-          bottom: 18px;
-          margin-top: 22px;
-          z-index: 20;
-        }
-        .dockInner {
-          width: min(980px, calc(100% - 24px));
-          margin: 0 auto;
-          padding: 10px 10px;
-          border-radius: 999px;
-          border: 1px solid rgba(255,255,255,0.10);
-          background: rgba(0,0,0,0.55);
-          backdrop-filter: blur(12px);
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 10px;
-        }
-        .dockLeft, .dockRight {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          flex-wrap: wrap;
-        }
-        .miniBtn {
-          height: 40px;
-          padding: 0 14px;
-          border-radius: 999px;
-          border: 1px solid rgba(255,255,255,0.12);
-          background: rgba(255,255,255,0.06);
-          color: rgba(255,255,255,0.92);
-          font-size: 13px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          transition: transform .12s ease, background .12s ease, border-color .12s ease;
-        }
-        .miniBtn:hover { transform: translateY(-1px); background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.18); }
-        .profileBtn {
-          height: 40px;
-          padding: 0 12px;
-          border-radius: 999px;
-          border: 1px solid rgba(255,255,255,0.12);
-          background: rgba(255,255,255,0.06);
-          display: inline-flex;
-          align-items: center;
-          gap: 10px;
-          color: rgba(255,255,255,0.92);
-          font-size: 13px;
-        }
-        .avatar {
-          width: 28px; height: 28px;
-          border-radius: 999px;
-          border: 1px solid rgba(255,255,255,0.18);
-          background: rgba(0,0,0,0.35);
-          display: grid;
-          place-items: center;
-          font-weight: 700;
-          font-size: 12px;
-        }
-      `}</style>
+    <div className="page">
+      <style>{baseCSS}</style>
 
       {/* Top bar */}
-      <div className="mx-auto max-w-6xl px-5 pt-8">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <div className="text-lg font-semibold">broT Members Portal</div>
-            <div className="text-sm text-white/60">
-              Quiet by design • presence over performance
-            </div>
+      <div className="container">
+        <div className="topbar">
+          <div className="brand">
+            <div className="title">broT Members Portal</div>
+            <div className="subtitle">Quiet by design • presence over performance</div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="topActions">
             {isAdmin ? (
-              <Link href="/admin/inbox" className="btn">
+              <Link className="chipBtn" href="/admin/inbox">
                 Admin Inbox
               </Link>
             ) : null}
-            <button onClick={logout} className="btn">
+
+            <button className="chipBtn" onClick={logout}>
               Log out
             </button>
           </div>
@@ -231,57 +119,53 @@ export default function MembersPage() {
       </div>
 
       {/* Hero */}
-      <div className="mx-auto max-w-6xl px-5 pt-6">
-        <div className="heroGlow rounded-3xl p-6 md:p-8">
-          <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
-            <div className="max-w-2xl">
-              <div className="flex flex-wrap gap-2 mb-4">
-                <span className="pill">Role: <b style={{ color: "white" }}>{role}</b></span>
-                <span className="pill">Nothing auto-joins</span>
-                <span className="pill">Nothing is recorded</span>
-              </div>
-
-              <h1 className="text-4xl md:text-5xl font-semibold tracking-tight">
-                Built for Brotherhood.
-              </h1>
+      <div className="container">
+        <div className="hero">
+          <div className="heroLeft">
+            <div className="pills">
+              <span className="pill">
+                Role: <b>{role}</b>
+              </span>
+              <span className="pill">Nothing auto-joins</span>
+              <span className="pill">Nothing is recorded</span>
             </div>
 
-            <div className="flex flex-wrap gap-2">
-              <Link href="/members/support" className="btn btnPrimary">
-                Request Support
-              </Link>
-              <Link href="/members/lounge" className="btn">
-                Enter Lounge
-              </Link>
-              <Link href="/members/forms" className="btn">
-                Forms
-              </Link>
-            </div>
+            <h1 className="heroH1">Built for Brotherhood.</h1>
+          </div>
+
+          <div className="heroRight">
+            <Link className="btn btnPrimary" href="/members/support">
+              Request Support
+            </Link>
+            <Link className="btn" href="/members/lounge">
+              Enter Lounge
+            </Link>
+            <Link className="btn" href="/members/forms">
+              Forms
+            </Link>
           </div>
         </div>
       </div>
 
       {/* Widgets */}
-      <div className="mx-auto max-w-6xl px-5 pt-7 pb-8">
-        <div className="text-sm text-white/60 mb-3">Quick Actions</div>
+      <div className="container">
+        <div className="sectionLabel">Quick Actions</div>
 
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid">
           {/* Support widget */}
-          <div className="card rounded-3xl p-6">
-            <div className="text-lg font-semibold mb-2">Support</div>
-            <div className="text-sm text-white/70">
-              Private request → goes to admin inbox.
-            </div>
-            <div className="text-xs text-white/55 mt-2">
-              resources • legal • medical • other
+          <div className="card">
+            <div className="cardHeader">
+              <div className="cardTitle">Support</div>
+              <div className="cardDesc">Private request → goes to admin inbox.</div>
+              <div className="cardMeta">resources • legal • medical • other</div>
             </div>
 
-            <div className="mt-4 flex flex-wrap gap-2">
-              <Link href="/members/support" className="btn btnPrimary">
+            <div className="cardActions">
+              <Link className="btn btnPrimary" href="/members/support">
                 Open Support Form
               </Link>
               {isAdmin ? (
-                <Link href="/admin/inbox" className="btn">
+                <Link className="btn" href="/admin/inbox">
                   View Inbox
                 </Link>
               ) : null}
@@ -289,94 +173,273 @@ export default function MembersPage() {
           </div>
 
           {/* Community widget */}
-          <div className="card rounded-3xl p-6">
-            <div className="text-lg font-semibold mb-2">Community</div>
-            <div className="text-sm text-white/70">
-              GroupMe for now. Portal chat later.
+          <div className="card">
+            <div className="cardHeader">
+              <div className="cardTitle">Community</div>
+              <div className="cardDesc">GroupMe for now. Portal chat later.</div>
+              <div className="cardMeta">temporary channel</div>
             </div>
-            <div className="text-xs text-white/55 mt-2">temporary channel</div>
 
-            <div className="mt-4 flex flex-wrap gap-2">
+            <div className="cardActions">
               <a
+                className="btn btnPrimary"
                 href="https://groupme.com/join_group/113145463/Wxy8CAFk"
                 target="_blank"
                 rel="noreferrer"
-                className="btn btnPrimary"
               >
                 Open GroupMe
               </a>
-              <span className="btn" style={{ opacity: 0.55, cursor: "default" }}>
-                Chat: coming soon
-              </span>
+              <span className="btn btnDisabled">Chat: coming soon</span>
             </div>
           </div>
 
           {/* Lounge widget */}
-          <div className="card rounded-3xl p-6">
-            <div className="text-lg font-semibold mb-2">broT Lounge</div>
-            <div className="text-sm text-white/70">
-              Rooms are secondary on purpose. Click opens. No auto-join.
+          <div className="card">
+            <div className="cardHeader">
+              <div className="cardTitle">broT Lounge</div>
+              <div className="cardDesc">Click opens. No auto-join.</div>
+              <div className="cardMeta">safe entry</div>
             </div>
-            <div className="text-xs text-white/55 mt-2">safe entry</div>
 
-            <div className="mt-4 flex flex-wrap gap-2">
-              <Link href="/members/lounge" className="btn btnPrimary">
+            <div className="cardActions">
+              <Link className="btn btnPrimary" href="/members/lounge">
                 Enter Lounge
               </Link>
-              <Link href="/members/room/weekly" className="btn">
+              <Link className="btn" href="/members/room/weekly">
                 Weekly Meeting
               </Link>
             </div>
           </div>
 
           {/* broBOT widget */}
-          <div className="card rounded-3xl p-6">
-            <div className="text-lg font-semibold mb-2">broBOT</div>
-            <div className="text-sm text-white/70">
-              Grounding • guidance • routing
+          <div className="card">
+            <div className="cardHeader">
+              <div className="cardTitle">broBOT</div>
+              <div className="cardDesc">Grounding • guidance • routing</div>
+              <div className="cardMeta">coming soon</div>
             </div>
-            <div className="text-xs text-white/55 mt-2">coming soon</div>
 
-            <div className="mt-4 flex flex-wrap gap-2">
-              <Link href="/members/brobot" className="btn btnPrimary">
+            <div className="cardActions">
+              <Link className="btn btnPrimary" href="/members/brobot">
                 Signal broBOT
               </Link>
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Bottom dock */}
+      {/* Bottom dock */}
+      <div className="dockWrap">
         <div className="dock">
-          <div className="dockInner">
-            <div className="dockLeft">
-              <Link href="/members/support" className="miniBtn">Support</Link>
-              <Link href="/members/lounge" className="miniBtn">Lounge</Link>
-              <Link href="/members/forms" className="miniBtn">Forms</Link>
-              <a
-                className="miniBtn"
-                href="https://groupme.com/join_group/113145463/Wxy8CAFk"
-                target="_blank"
-                rel="noreferrer"
-              >
-                GroupMe
-              </a>
-            </div>
+          <div className="dockLeft">
+            <Link className="dockBtn" href="/members/support">Support</Link>
+            <Link className="dockBtn" href="/members/lounge">Lounge</Link>
+            <Link className="dockBtn" href="/members/forms">Forms</Link>
+            <a
+              className="dockBtn"
+              href="https://groupme.com/join_group/113145463/Wxy8CAFk"
+              target="_blank"
+              rel="noreferrer"
+            >
+              GroupMe
+            </a>
+          </div>
 
-            <div className="dockRight">
-              <Link href="/members/directory" className="miniBtn">
-                Directory
-              </Link>
+          <div className="dockRight">
+            <Link className="dockBtn" href="/members/directory">Directory</Link>
 
-              <Link href="/members/profile" className="profileBtn">
-                <span className="avatar">{initial}</span>
-                <span style={{ maxWidth: 140, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                  {displayLabel}
-                </span>
-              </Link>
-            </div>
+            <Link className="profileBtn" href="/members/profile">
+              <span className="avatar">{initial}</span>
+              <span className="profileName">{displayLabel}</span>
+            </Link>
           </div>
         </div>
       </div>
     </div>
   );
 }
+
+const baseCSS = `
+  :root { color-scheme: dark; }
+  html, body { margin: 0; padding: 0; background: #07070b; color: #fff; }
+  * { box-sizing: border-box; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; }
+
+  .page { min-height: 100vh; background: #07070b; }
+  .container { width: min(1100px, calc(100% - 28px)); margin: 0 auto; }
+
+  .center { min-height: 100vh; display: grid; place-items: center; }
+  .muted { opacity: .70; font-size: 14px; }
+
+  .topbar {
+    padding: 22px 0 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+  }
+  .title { font-size: 18px; font-weight: 700; }
+  .subtitle { margin-top: 4px; font-size: 13px; opacity: .65; }
+
+  .topActions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+  .chipBtn {
+    height: 40px;
+    padding: 0 14px;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,.14);
+    background: rgba(255,255,255,.06);
+    color: rgba(255,255,255,.92);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    cursor: pointer;
+    transition: transform .12s ease, background .12s ease, border-color .12s ease;
+  }
+  .chipBtn:hover { transform: translateY(-1px); background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.20); }
+
+  .hero {
+    margin-top: 10px;
+    border-radius: 26px;
+    padding: 22px;
+    border: 1px solid rgba(255,255,255,.10);
+    background:
+      radial-gradient(900px 420px at 15% 25%, rgba(80,170,255,.22), transparent 60%),
+      radial-gradient(900px 420px at 85% 30%, rgba(255,80,210,.16), transparent 60%),
+      radial-gradient(900px 420px at 50% 90%, rgba(40,255,200,.10), transparent 60%),
+      rgba(255,255,255,.03);
+    box-shadow: 0 0 90px rgba(0,0,0,.55);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    flex-wrap: wrap;
+  }
+
+  .pills { display: flex; gap: 8px; flex-wrap: wrap; }
+  .pill {
+    height: 34px;
+    padding: 0 12px;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,.10);
+    background: rgba(0,0,0,.26);
+    color: rgba(255,255,255,.82);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+  }
+  .pill b { color: #fff; }
+
+  .heroH1 {
+    margin: 14px 0 0 0;
+    font-size: 44px;
+    letter-spacing: -0.02em;
+    font-weight: 800;
+  }
+
+  .heroRight { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+
+  .sectionLabel { margin-top: 18px; margin-bottom: 10px; font-size: 13px; opacity: .65; }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    padding-bottom: 26px;
+  }
+  @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } .heroH1 { font-size: 38px; } }
+
+  .card {
+    border-radius: 26px;
+    padding: 18px;
+    border: 1px solid rgba(255,255,255,.10);
+    background: rgba(255,255,255,.035);
+    box-shadow: 0 0 70px rgba(0,0,0,.45);
+  }
+  .cardTitle { font-size: 18px; font-weight: 800; }
+  .cardDesc { margin-top: 8px; font-size: 14px; opacity: .72; }
+  .cardMeta { margin-top: 8px; font-size: 12px; opacity: .55; }
+  .cardActions { margin-top: 14px; display: flex; gap: 10px; flex-wrap: wrap; }
+
+  .btn {
+    height: 44px;
+    padding: 0 16px;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,.14);
+    background: rgba(255,255,255,.06);
+    color: rgba(255,255,255,.95);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    transition: transform .12s ease, background .12s ease, border-color .12s ease;
+    user-select: none;
+    cursor: pointer;
+    font-size: 14px;
+  }
+  .btn:hover { transform: translateY(-1px); background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.20); }
+
+  .btnPrimary { background: #fff; color: #000; border: none; }
+  .btnDisabled { opacity: .55; cursor: default; pointer-events: none; }
+
+  .dockWrap { position: sticky; bottom: 18px; z-index: 20; padding: 10px 0 18px; }
+  .dock {
+    width: min(1100px, calc(100% - 28px));
+    margin: 0 auto;
+    padding: 10px;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,.10);
+    background: rgba(0,0,0,.55);
+    backdrop-filter: blur(12px);
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .dockLeft, .dockRight { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+
+  .dockBtn {
+    height: 40px;
+    padding: 0 14px;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,.14);
+    background: rgba(255,255,255,.06);
+    color: rgba(255,255,255,.92);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    transition: transform .12s ease, background .12s ease, border-color .12s ease;
+  }
+  .dockBtn:hover { transform: translateY(-1px); background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.20); }
+
+  .profileBtn {
+    height: 40px;
+    padding: 0 12px;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,.14);
+    background: rgba(255,255,255,.06);
+    color: rgba(255,255,255,.92);
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+  }
+  .avatar {
+    width: 28px; height: 28px;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,.18);
+    background: rgba(0,0,0,.30);
+    display: grid;
+    place-items: center;
+    font-size: 12px;
+    font-weight: 800;
+  }
+  .profileName {
+    max-width: 160px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 13px;
+  }
+`;

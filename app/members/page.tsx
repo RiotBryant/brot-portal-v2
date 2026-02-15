@@ -67,6 +67,7 @@ export default function MembersPage() {
                   width={78}
                   height={78}
                   priority
+                  className="brot-pulse"
                 />
               </div>
             </div>

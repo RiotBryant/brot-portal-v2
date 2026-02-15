@@ -18,6 +18,15 @@ type Profile = {
   linkedin: string | null;
   bio: string | null;
 
+  // member toggles (directory/profile visibility)
+  show_phone: boolean;
+  show_email: boolean;
+  show_instagram: boolean;
+  show_tiktok: boolean;
+  show_x: boolean;
+  show_linkedin: boolean;
+  show_bio: boolean;
+
   avatar_path: string | null;
   admin_photo_path: string | null;
 };
@@ -42,6 +51,7 @@ export default function ProfilePage() {
     user_id: "",
     display_name: "",
     username: "",
+
     phone: "",
     email: "",
     instagram: "",
@@ -49,6 +59,15 @@ export default function ProfilePage() {
     x: "",
     linkedin: "",
     bio: "",
+
+    show_phone: false,
+    show_email: false,
+    show_instagram: true,
+    show_tiktok: true,
+    show_x: true,
+    show_linkedin: true,
+    show_bio: true,
+
     avatar_path: null,
     admin_photo_path: null,
   });
@@ -75,7 +94,12 @@ export default function ProfilePage() {
       const { data, error } = await supabase
         .from("profiles")
         .select(
-          "user_id, display_name, username, phone, email, instagram, tiktok, x, linkedin, bio, avatar_path, admin_photo_path"
+          `
+          user_id, display_name, username,
+          phone, email, instagram, tiktok, x, linkedin, bio,
+          show_phone, show_email, show_instagram, show_tiktok, show_x, show_linkedin, show_bio,
+          avatar_path, admin_photo_path
+        `
         )
         .eq("user_id", id)
         .maybeSingle();
@@ -86,6 +110,7 @@ export default function ProfilePage() {
         user_id: id,
         display_name: data?.display_name ?? "",
         username: data?.username ?? "",
+
         phone: data?.phone ?? "",
         email: data?.email ?? "",
         instagram: data?.instagram ?? "",
@@ -93,13 +118,22 @@ export default function ProfilePage() {
         x: data?.x ?? "",
         linkedin: data?.linkedin ?? "",
         bio: data?.bio ?? "",
+
+        show_phone: data?.show_phone ?? false,
+        show_email: data?.show_email ?? false,
+        show_instagram: data?.show_instagram ?? true,
+        show_tiktok: data?.show_tiktok ?? true,
+        show_x: data?.show_x ?? true,
+        show_linkedin: data?.show_linkedin ?? true,
+        show_bio: data?.show_bio ?? true,
+
         avatar_path: data?.avatar_path ?? null,
         admin_photo_path: data?.admin_photo_path ?? null,
       };
 
       setForm(merged);
 
-      // signed urls for private buckets
+      // Signed URLs for private buckets
       if (merged.avatar_path) {
         const { data: signed } = await supabase.storage
           .from("avatars")
@@ -146,6 +180,14 @@ export default function ProfilePage() {
       x: form.x?.trim() || null,
       linkedin: form.linkedin?.trim() || null,
       bio: form.bio?.trim() || null,
+
+      show_phone: !!form.show_phone,
+      show_email: !!form.show_email,
+      show_instagram: !!form.show_instagram,
+      show_tiktok: !!form.show_tiktok,
+      show_x: !!form.show_x,
+      show_linkedin: !!form.show_linkedin,
+      show_bio: !!form.show_bio,
 
       avatar_path: form.avatar_path,
       admin_photo_path: form.admin_photo_path,
@@ -221,6 +263,27 @@ export default function ProfilePage() {
     setMsg("Admin photo updated.");
   }
 
+  function Toggle({
+    label,
+    value,
+    onChange,
+  }: {
+    label: string;
+    value: boolean;
+    onChange: (v: boolean) => void;
+  }) {
+    return (
+      <button
+        type="button"
+        aria-label={label}
+        className={`switch ${value ? "on" : "off"}`}
+        onClick={() => onChange(!value)}
+      >
+        <span className="knob" />
+      </button>
+    );
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#07070b] text-white grid place-items-center">
@@ -274,15 +337,33 @@ export default function ProfilePage() {
           overflow:hidden;
         }
         .avatarBox img { width:100%; height:100%; object-fit:cover; display:block; }
+
+        .rowField { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+        .rowField .left { flex: 1 1 auto; min-width: 0; }
+
+        .switch {
+          width: 54px; height: 32px; border-radius: 999px;
+          border: 1px solid rgba(255,255,255,0.14);
+          background: rgba(255,255,255,0.06);
+          position: relative;
+          flex: 0 0 auto;
+          transition: background .15s ease, border-color .15s ease;
+        }
+        .switch .knob {
+          width: 26px; height: 26px; border-radius: 999px;
+          background: rgba(255,255,255,0.85);
+          position: absolute; top: 2px; left: 2px;
+          transition: transform .18s ease;
+        }
+        .switch.on { background: rgba(255,255,255,0.18); border-color: rgba(255,255,255,0.22); }
+        .switch.on .knob { transform: translateX(22px); background: #fff; }
+        .switch.off { opacity: 0.8; }
       `}</style>
 
       <div className="wrap">
         <div className="flex items-center justify-between gap-3">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Profile</h1>
-            <p className="mt-1 text-sm text-white/70">
-              Your portal identity + what you want other members to see.
-            </p>
           </div>
           <div className="flex gap-2">
             <Link href="/members" className="pill text-sm">
@@ -300,9 +381,6 @@ export default function ProfilePage() {
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <div className="text-lg font-semibold">Display Avatar</div>
-                  <div className="tiny">
-                    This is what members see in the directory.
-                  </div>
                 </div>
                 <div className="avatarBox">{avatarUrl ? <img src={avatarUrl} alt="" /> : null}</div>
               </div>
@@ -316,9 +394,6 @@ export default function ProfilePage() {
                     if (f) uploadAvatar(f);
                   }}
                 />
-                <div className="tiny mt-2">
-                  Tip: use a clear face/upper-body shot.
-                </div>
               </div>
             </div>
 
@@ -326,9 +401,7 @@ export default function ProfilePage() {
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <div className="text-lg font-semibold">Admin Photo</div>
-                  <div className="tiny">
-                    Only admins can view this. For back-of-house identity.
-                  </div>
+                  <div className="tiny">Admins only.</div>
                 </div>
                 <div className="avatarBox">{adminPhotoUrl ? <img src={adminPhotoUrl} alt="" /> : null}</div>
               </div>
@@ -342,9 +415,6 @@ export default function ProfilePage() {
                     if (f) uploadAdminPhoto(f);
                   }}
                 />
-                <div className="tiny mt-2">
-                  Please use a normal photo (no filters). This is private.
-                </div>
               </div>
             </div>
           </div>
@@ -366,72 +436,126 @@ export default function ProfilePage() {
                 onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))}
                 placeholder="riotbryant"
               />
-              <div className="tiny mt-1">
-                Allowed: letters, numbers, underscore. We auto-clean it on save.
+              <div className="tiny mt-1">letters / numbers / underscore</div>
+            </div>
+
+            <div className="rowField">
+              <div className="left">
+                <label>Phone (optional)</label>
+                <input
+                  value={form.phone ?? ""}
+                  onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+                  placeholder="(555) 555-5555"
+                />
+                <div className="tiny mt-1">Show to members</div>
               </div>
-            </div>
-
-            <div>
-              <label>Phone (optional)</label>
-              <input
-                value={form.phone ?? ""}
-                onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
-                placeholder="(555) 555-5555"
+              <Toggle
+                label="show_phone"
+                value={form.show_phone}
+                onChange={(v) => setForm((f) => ({ ...f, show_phone: v }))}
               />
             </div>
 
-            <div>
-              <label>Email (optional)</label>
-              <input
-                value={form.email ?? ""}
-                onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-                placeholder="you@email.com"
+            <div className="rowField">
+              <div className="left">
+                <label>Email (optional)</label>
+                <input
+                  value={form.email ?? ""}
+                  onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                  placeholder="you@email.com"
+                />
+                <div className="tiny mt-1">Show to members</div>
+              </div>
+              <Toggle
+                label="show_email"
+                value={form.show_email}
+                onChange={(v) => setForm((f) => ({ ...f, show_email: v }))}
               />
             </div>
 
-            <div>
-              <label>Instagram (optional)</label>
-              <input
-                value={form.instagram ?? ""}
-                onChange={(e) => setForm((f) => ({ ...f, instagram: e.target.value }))}
-                placeholder="@handle"
+            <div className="rowField">
+              <div className="left">
+                <label>Instagram (optional)</label>
+                <input
+                  value={form.instagram ?? ""}
+                  onChange={(e) => setForm((f) => ({ ...f, instagram: e.target.value }))}
+                  placeholder="@handle"
+                />
+                <div className="tiny mt-1">Show to members</div>
+              </div>
+              <Toggle
+                label="show_instagram"
+                value={form.show_instagram}
+                onChange={(v) => setForm((f) => ({ ...f, show_instagram: v }))}
               />
             </div>
 
-            <div>
-              <label>TikTok (optional)</label>
-              <input
-                value={form.tiktok ?? ""}
-                onChange={(e) => setForm((f) => ({ ...f, tiktok: e.target.value }))}
-                placeholder="@handle"
+            <div className="rowField">
+              <div className="left">
+                <label>TikTok (optional)</label>
+                <input
+                  value={form.tiktok ?? ""}
+                  onChange={(e) => setForm((f) => ({ ...f, tiktok: e.target.value }))}
+                  placeholder="@handle"
+                />
+                <div className="tiny mt-1">Show to members</div>
+              </div>
+              <Toggle
+                label="show_tiktok"
+                value={form.show_tiktok}
+                onChange={(v) => setForm((f) => ({ ...f, show_tiktok: v }))}
               />
             </div>
 
-            <div>
-              <label>X (optional)</label>
-              <input
-                value={form.x ?? ""}
-                onChange={(e) => setForm((f) => ({ ...f, x: e.target.value }))}
-                placeholder="@handle"
+            <div className="rowField">
+              <div className="left">
+                <label>X (optional)</label>
+                <input
+                  value={form.x ?? ""}
+                  onChange={(e) => setForm((f) => ({ ...f, x: e.target.value }))}
+                  placeholder="@handle"
+                />
+                <div className="tiny mt-1">Show to members</div>
+              </div>
+              <Toggle
+                label="show_x"
+                value={form.show_x}
+                onChange={(v) => setForm((f) => ({ ...f, show_x: v }))}
               />
             </div>
 
-            <div>
-              <label>LinkedIn (optional)</label>
-              <input
-                value={form.linkedin ?? ""}
-                onChange={(e) => setForm((f) => ({ ...f, linkedin: e.target.value }))}
-                placeholder="linkedin.com/in/… or name"
+            <div className="rowField">
+              <div className="left">
+                <label>LinkedIn (optional)</label>
+                <input
+                  value={form.linkedin ?? ""}
+                  onChange={(e) => setForm((f) => ({ ...f, linkedin: e.target.value }))}
+                  placeholder="linkedin.com/in/…"
+                />
+                <div className="tiny mt-1">Show to members</div>
+              </div>
+              <Toggle
+                label="show_linkedin"
+                value={form.show_linkedin}
+                onChange={(v) => setForm((f) => ({ ...f, show_linkedin: v }))}
               />
             </div>
           </div>
 
-          <div className="mt-4">
-            <label>Bio (optional)</label>
-            <textarea
-              value={form.bio ?? ""}
-              onChange={(e) => setForm((f) => ({ ...f, bio: e.target.value }))}
-              placeholder="A few lines about you. Keep it real."
+          <div className="mt-4 rowField">
+            <div className="left">
+              <label>Bio (optional)</label>
+              <textarea
+                value={form.bio ?? ""}
+                onChange={(e) => setForm((f) => ({ ...f, bio: e.target.value }))}
+                placeholder="A few lines about you."
+              />
+              <div className="tiny mt-1">Show to members</div>
+            </div>
+            <Toggle
+              label="show_bio"
+              value={form.show_bio}
+              onChange={(v) => setForm((f) => ({ ...f, show_bio: v }))}
             />
           </div>
 

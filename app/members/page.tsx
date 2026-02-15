@@ -173,25 +173,32 @@ export default function MembersPage() {
           </div>
 
           {/* Community widget */}
-          <div className="card">
-            <div className="cardHeader">
-              <div className="cardTitle">Community</div>
-              <div className="cardDesc">GroupMe for now. Portal chat later.</div>
-              <div className="cardMeta">temporary channel</div>
-            </div>
+<div className="card">
+  <div className="cardHeader">
+    <div className="cardTitle">Community</div>
+    <div className="cardDesc">Live members chat is now active.</div>
+    <div className="cardMeta">members-only channel</div>
+  </div>
 
-            <div className="cardActions">
-              <a
-                className="btn btnPrimary"
-                href="https://groupme.com/join_group/113145463/Wxy8CAFk"
-                target="_blank"
-                rel="noreferrer"
-              >
-                Open GroupMe
-              </a>
-              <span className="btn btnDisabled">Chat: coming soon</span>
-            </div>
-          </div>
+  <div className="cardActions">
+    <a
+      className="btn"
+      href="https://groupme.com/join_group/113145463/Wxy8CAFk"
+      target="_blank"
+      rel="noreferrer"
+    >
+      Open GroupMe
+    </a>
+
+    <Link
+      href="/members/chat"
+      className="btn btnPrimary"
+    >
+      Open broChAT →
+    </Link>
+  </div>
+</div>
+
 
           {/* Lounge widget */}
           <div className="card">

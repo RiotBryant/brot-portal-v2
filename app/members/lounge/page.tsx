@@ -78,9 +78,9 @@ export default function LoungePage() {
             <Link href="/members" className="btn">
               ← Back
             </Link>
-            <Link href="/members/room/weekly" className="btn btnPrimary">
-              Weekly Meeting
-            </Link>
+            <Link href="/members/lounge/weekly" className="btn btnPrimary">
+  Weekly Meeting
+</Link>
           </div>
         </div>
 
@@ -94,7 +94,7 @@ export default function LoungePage() {
             {ROOMS.map((r) => (
               <Link
                 key={r.slug}
-                href={`/members/room/${r.slug}`}
+                href={`/members/lounge/${r.slug}`}
                 className="card hover:opacity-95 transition"
               >
                 <div className="text-base font-semibold">{r.title}</div>

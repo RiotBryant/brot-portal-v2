@@ -440,16 +440,16 @@ export default function MembersPortalPage() {
             </div>
 
             <div className="bubbleRow">
-              <Link className="bubble" href="/members/room/chill-room-1">
+              <Link className="bubble" href="https://meet.jit.si/ChillRoom1">
                 Chill Room 1
               </Link>
-              <Link className="bubble" href="/members/room/chill-room-2">
+              <Link className="bubble" href="https://meet.jit.si/ChillRoom2">
                 Chill Room 2
               </Link>
-              <Link className="bubble" href="/members/room/brot-meeting">
+              <Link className="bubble" href="https://meet.jit.si/broTMeeting">
                 broT Meeting
               </Link>
-              <Link className="bubble" href="/members/room/admin-meeting-room">
+              <Link className="bubble" href="https://meet.jit.si/broTAdmin">
                 Admin Meeting Room
               </Link>
             </div>

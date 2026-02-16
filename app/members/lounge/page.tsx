@@ -19,10 +19,12 @@ export default function LoungePage() {
   useEffect(() => {
     (async () => {
       const { data } = await supabase.auth.getSession();
+
       if (!data.session) {
-        router.replace("/login");
+        router.replace(`/login?next=${encodeURIComponent("/members/lounge")}`);
         return;
       }
+
       setLoading(false);
     })();
   }, [router]);
@@ -85,7 +87,7 @@ export default function LoungePage() {
         <div className="glass rounded-3xl p-6 mt-5">
           <div className="text-2xl font-semibold">Safe entry.</div>
           <div className="text-sm text-white/65 mt-2">
-            Rooms are secondary on purpose. Click → opens a branded room page.
+            Click a room → it opens the room page. Nothing auto-joins.
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2 mt-6">

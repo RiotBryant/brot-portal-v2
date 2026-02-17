@@ -1,7 +1,8 @@
-import Link from "next/link";
+import { redirect } from "next/navigation";
 
 export default function Home() {
-  return (
+  redirect("/members");
+}
     <main style={{ padding: 48, maxWidth: 720, margin: "0 auto" }}>
       <h1 style={{ fontSize: 36, fontWeight: 800 }}>
         broTher collecTive

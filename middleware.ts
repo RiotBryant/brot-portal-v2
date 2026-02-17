@@ -4,7 +4,7 @@ import { createServerClient } from "@supabase/ssr";
 type CookieToSet = {
   name: string;
   value: string;
-  options?: Parameters<NextResponse["cookies"]["set"]>[2];
+  options?: any;
 };
 
 export async function middleware(req: NextRequest) {
@@ -29,14 +29,25 @@ export async function middleware(req: NextRequest) {
 
   const path = req.nextUrl.pathname;
 
-  // ✅ ONE PORTAL: /portal routes into /members
-  if (path === "/portal" || path.startsWith("/portal/")) {
+  // 🔥 FORCE EVERYTHING INTO /members
+  if (
+    path === "/portal" ||
+    path.startsWith("/portal/") ||
+    path === "/profile" ||
+    path.startsWith("/profile/") ||
+    path === "/lounge" ||
+    path.startsWith("/lounge/") ||
+    path === "/protected" ||
+    path.startsWith("/protected/")
+  ) {
     const url = req.nextUrl.clone();
-    url.pathname = path.replace("/portal", "/members") || "/members";
+    url.pathname = "/members";
     return NextResponse.redirect(url);
   }
 
-  const isProtected = path === "/members" || path.startsWith("/members/");
+  const isProtected =
+    path === "/members" ||
+    path.startsWith("/members/");
 
   const {
     data: { user },
@@ -53,5 +64,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/members/:path*", "/portal/:path*"],
+  matcher: ["/((?!_next|favicon.ico).*)"],
 };

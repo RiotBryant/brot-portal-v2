@@ -44,7 +44,7 @@ export default function AdminInboxPage() {
 
       if (!user) {
         router.replace(
-          `/login?next=${encodeURIComponent("/members/admin/inbox")}`
+          `/login?redirect=${encodeURIComponent("/members/admin/inbox")}`
         );
         return;
       }

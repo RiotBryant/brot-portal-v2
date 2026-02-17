@@ -1,11 +1,15 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
+type CookieToSet = {
+  name: string;
+  value: string;
+  options?: Parameters<NextResponse["cookies"]["set"]>[2];
+};
+
 export async function middleware(req: NextRequest) {
-  // Always create a response we can attach refreshed cookies to
   let res = NextResponse.next();
 
-  // Create Supabase SSR client that can READ + REFRESH auth cookies in middleware
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -14,8 +18,7 @@ export async function middleware(req: NextRequest) {
         getAll() {
           return req.cookies.getAll();
         },
-        setAll(cookies) {
-          // If Supabase refreshes the session, it will set cookies here
+        setAll(cookies: CookieToSet[]) {
           cookies.forEach((cookie) => {
             res.cookies.set(cookie.name, cookie.value, cookie.options);
           });
@@ -26,40 +29,20 @@ export async function middleware(req: NextRequest) {
 
   const path = req.nextUrl.pathname;
 
-  // ✅ ONE PORTAL: if anything hits /portal, force it into /members
-  // (No moving files. No new folders. Just one entry point.)
+  // ✅ ONE PORTAL: /portal routes into /members
   if (path === "/portal" || path.startsWith("/portal/")) {
     const url = req.nextUrl.clone();
     url.pathname = path.replace("/portal", "/members") || "/members";
     return NextResponse.redirect(url);
   }
 
-  // Routes anyone should reach without being logged in
-  const publicPaths = [
-    "/",
-    "/login",
-    "/auth",
-    "/reset-password",
-    "/api",
-    "/favicon.ico",
-  ];
+  const isProtected = path === "/members" || path.startsWith("/members/");
 
-  const isPublic = publicPaths.some(
-    (p) => path === p || path.startsWith(p + "/")
-  );
-
-  // Only protect the portal areas
-  const isProtected =
-    path === "/members" ||
-    path.startsWith("/members/");
-
-  // Read user from refreshed cookies
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // If protected and not logged in → send to /login
-  if (isProtected && !isPublic && !user) {
+  if (isProtected && !user) {
     const url = req.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("redirect", path);
@@ -69,7 +52,6 @@ export async function middleware(req: NextRequest) {
   return res;
 }
 
-// Only run middleware where it matters (keeps it fast)
 export const config = {
   matcher: ["/members/:path*", "/portal/:path*"],
 };
